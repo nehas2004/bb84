@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Key Distribution System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d3436 50%, #1a1a1a 100%);
+            height: 100vh;
+            overflow: hidden;
+            color: #e0e0e0;
+            padding: 10px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 10px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .logo-container {
+            position: relative;
+            width: 50px;
+            height: 50px;
+            margin: 0;
+        }
+
+        .quantum-orb {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #ffd700, #ffed4e 30%, #d4af37 60%, #8b7500);
+            box-shadow:
+                0 0 60px rgba(255, 215, 0, 0.6),
+                0 0 100px rgba(255, 215, 0, 0.4),
+                inset 0 0 60px rgba(255, 255, 255, 0.2);
+            animation: pulse 3s ease-in-out infinite, rotate 10s linear infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.9;
+            }
+
+            50% {
+                transform: scale(1.05);
+                opacity: 1;
+            }
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 300;
+            color: #ffd700;
+            margin: 0;
+            letter-spacing: 1px;
+        }
+
+        .header p {
+            font-size: 12px;
+            color: #999;
+            font-weight: 300;
+            margin: 0;
+        }
+
+        #page-keygen,
+        #page-messaging {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 15px;
+            height: 100%;
+        }
+
+        .card {
+            background: rgba(30, 30, 30, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            padding: 25px;
+            border: 1px solid rgba(255, 215, 0, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .card h2 {
+            color: #ffd700;
+            font-size: 18px;
+            font-weight: 400;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .role-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .role-btn {
+            flex: 1;
+            padding: 15px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            background: rgba(255, 215, 0, 0.05);
+            color: #ffd700;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 400;
+            transition: all 0.3s;
+        }
+
+        .role-btn:hover {
+            background: rgba(255, 215, 0, 0.1);
+            border-color: rgba(255, 215, 0, 0.5);
+        }
+
+        .role-btn.active {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            color: #1a1a1a;
+            border-color: #ffd700;
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            margin-bottom: 8px;
+            background: rgba(255, 215, 0, 0.05);
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid transparent;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 215, 0, 0.1);
+            border-color: rgba(255, 215, 0, 0.3);
+        }
+
+        .menu-item-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .menu-icon {
+            width: 35px;
+            height: 35px;
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .menu-label {
+            color: #e0e0e0;
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .menu-arrow {
+            color: #666;
+            font-size: 18px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 28px;
+            background: rgba(255, 215, 0, 0.2);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 22px;
+            height: 22px;
+            background: #1a1a1a;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .toggle-switch.active .toggle-slider {
+            left: 25px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #999;
+            font-size: 13px;
+            font-weight: 400;
+        }
+
+        .input-group input,
+        .input-group textarea {
+            width: 100%;
+            padding: 15px;
+            background: rgba(255, 215, 0, 0.05);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 15px;
+            color: #e0e0e0;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #ffd700;
+            background: rgba(255, 215, 0, 0.1);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            color: #1a1a1a;
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(255, 215, 0, 0.5);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 215, 0, 0.1);
+            color: #ffd700;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 215, 0, 0.2);
+        }
+
+        .pattern-display {
+            background: rgba(255, 215, 0, 0.05);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px dashed rgba(255, 215, 0, 0.3);
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            font-size: 12px;
+            color: #ffd700;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 15px;
+            margin: 15px 0;
+            font-size: 13px;
+            font-weight: 400;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-info {
+            background: rgba(100, 150, 255, 0.1);
+            color: #64b5f6;
+            border: 1px solid rgba(100, 150, 255, 0.2);
+        }
+
+        .status-success {
+            background: rgba(76, 175, 80, 0.1);
+            color: #81c784;
+            border: 1px solid rgba(76, 175, 80, 0.2);
+        }
+
+        .status-warning {
+            background: rgba(255, 215, 0, 0.1);
+            color: #ffd700;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .status-error {
+            background: rgba(244, 67, 54, 0.1);
+            color: #e57373;
+            border: 1px solid rgba(244, 67, 54, 0.2);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: rgba(255, 215, 0, 0.05);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            border: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 300;
+            color: #ffd700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .messages {
+            background: rgba(0, 0, 0, 0.3);
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 15px 20px;
+            border-radius: 18px;
+            max-width: 70%;
+            animation: messageSlide 0.3s ease-out;
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-sent {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            color: #1a1a1a;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message-received {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            color: #e0e0e0;
+            border-bottom-left-radius: 5px;
+        }
+
+        .message-meta {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .message-input-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .message-input-container input {
+            flex: 1;
+            padding: 15px 20px;
+            background: rgba(255, 215, 0, 0.05);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 25px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+
+        .message-input-container input:focus {
+            outline: none;
+            border-color: #ffd700;
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        .send-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .send-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 30px rgba(255, 215, 0, 0.5);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .logs {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            margin-top: 10px;
+            border: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 5px;
+        }
+
+        .log-error {
+            color: #e57373;
+        }
+
+        .log-success {
+            color: #81c784;
+        }
+
+        .log-warning {
+            color: #ffd700;
+        }
+
+        .log-info {
+            color: #64b5f6;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.3), transparent);
+            margin: 25px 0;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 215, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 215, 0, 0.5);
+        }
+
+        .glow {
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+
+            0%,
+            100% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo-container">
+                <div class="quantum-orb"></div>
+            </div>
+            <h1>Quantum Key Distribution</h1>
+            <p>BB84 Protocol with Algorithmic Masking</p>
+        </div>
+
+        <div id="page-keygen">
+            <div class="main-grid">
+                <!-- Left Sidebar -->
+                <div class="card">
+                    <h2>⚙️ Configuration</h2>
+
+                    <div class="role-selector">
+                        <button class="role-btn active" onclick="selectRole('alice')">
+                            👩‍💻 Alice
+                        </button>
+                        <button class="role-btn" onclick="selectRole('bob')">
+                            👨‍💻 Bob
+                        </button>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- Pattern Setup -->
+                    <div class="menu-item" onclick="toggleSection('patternSetup')">
+                        <div class="menu-item-left">
+                            <div class="menu-icon">🔑</div>
+                            <div class="menu-label">Special Pattern</div>
+                        </div>
+                        <div class="menu-arrow">›</div>
+                    </div>
+
+                    <div id="patternSetup" class="hidden" style="margin-top: 15px;">
+                        <div id="alicePatternSetup">
+                            <button class="btn btn-primary" onclick="generatePattern()" style="width: 100%;">
+                                Generate Pattern
+                            </button>
+                        </div>
+
+                        <div id="bobPatternSetup" class="hidden">
+                            <div class="input-group">
+                                <label>Paste Pattern from Alice</label>
+                                <textarea id="patternInput" rows="3" placeholder="Enter pattern here..."></textarea>
+                            </div>
+                            <button class="btn btn-primary" onclick="loadPattern()" style="width: 100%;">
+                                Load Pattern
+                            </button>
+                        </div>
+
+                        <div id="patternDisplay" class="hidden">
+                            <div class="pattern-display" id="patternText"></div>
+                            <button class="btn btn-secondary" onclick="copyPattern()" style="width: 100%;">
+                                📋 Copy to Clipboard
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- Connection -->
+                    <div class="menu-item" onclick="toggleSection('connectionSetup')">
+                        <div class="menu-item-left">
+                            <div class="menu-icon">🔌</div>
+                            <div class="menu-label">Connection</div>
+                        </div>
+                        <div class="menu-arrow">›</div>
+                    </div>
+
+                    <div id="connectionSetup" class="hidden" style="margin-top: 15px;">
+                        <div class="input-group">
+                            <label>Peer IP Address</label>
+                            <input type="text" id="peerIP" placeholder="192.168.1.100">
+                        </div>
+                        <button class="btn btn-primary" onclick="establishConnection()" id="connectBtn" disabled
+                            style="width: 100%;">
+                            Establish Connection
+                        </button>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- Quantum Generator Menu Item -->
+                    <div class="menu-item" onclick="switchPage('page-generator')">
+                        <div class="menu-item-left">
+                            <div class="menu-icon">⚛️</div>
+                            <div class="menu-label">Quantum Generator</div>
+                        </div>
+                        <div class="menu-arrow">›</div>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- Settings -->
+                    <div class="menu-item">
+                        <div class="menu-item-left">
+                            <div class="menu-icon">🌙</div>
+                            <div class="menu-label">Dark Mode</div>
+                        </div>
+                        <div class="toggle-switch active">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+
+                    <div class="menu-item" onclick="toggleSection('advancedSettings')">
+                        <div class="menu-item-left">
+                            <div class="menu-icon">⚡</div>
+                            <div class="menu-label">Advanced Settings</div>
+                        </div>
+                        <div class="menu-arrow">›</div>
+                    </div>
+
+                    <div id="advancedSettings" class="hidden" style="margin-top: 15px;">
+                        <div class="input-group">
+                            <label>Bits to Exchange</label>
+                            <input type="number" id="numBits" value="100" min="10" max="10000">
+                        </div>
+                        <button class="btn btn-primary" onclick="startKeyExchange()" id="exchangeBtn" disabled
+                            style="width: 100%;">
+                            🚀 Start Exchange
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Stats -->
+                    <div class="card">
+                        <h2>📊 Session Statistics</h2>
+
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value" id="statQubits">0</div>
+                                <div class="stat-label">Qubits</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="statSifted">0</div>
+                                <div class="stat-label">Sifted</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="statQBER">0%</div>
+                                <div class="stat-label">QBER</div>
+                            </div>
+                        </div>
+
+                        <div id="connectionStatus" class="status status-warning">
+                            ⏸️ Not Connected
+                        </div>
+
+                        <div id="securityStatus" class="status status-info hidden">
+                            🔒 Waiting for handshake...
+                        </div>
+                    </div>
+
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Page: Messaging -->
+        <div id="page-messaging" class="hidden">
+            <div class="card" style="max-width: 800px; margin: 0 auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="margin: 0;">💬 Secure Messaging</h2>
+                    <button class="btn btn-secondary" onclick="switchPage('page-keygen')"
+                        style="padding: 8px 15px; font-size: 12px;">
+                        ← Back to Key Gen
+                    </button>
+                </div>
+
+                <div class="messages" id="messageContainer">
+                    <div style="text-align: center; color: #666; padding-top: 140px; font-size: 14px;">
+                        <div style="font-size: 48px; margin-bottom: 20px; opacity: 0.3;">🔒</div>
+                        Complete key exchange to enable secure messaging
+                    </div>
+                </div>
+
+                <div class="message-input-container">
+                    <input type="text" id="messageInput" placeholder="Type your encrypted message..."
+                        onkeypress="handleMessageKeypress(event)" disabled>
+                    <button class="send-btn" onclick="sendMessage()" id="sendBtn" disabled>
+                        ➤
+                    </button>
+                </div>
+
+
+            </div>
+        </div>
+        <!-- Page: Quantum Generator -->
+        <div id="page-generator" class="hidden">
+            <div class="card" style="max-width: 800px; margin: 0 auto; padding-right: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="margin: 0;">⚛️ Quantum Random Key Generator</h2>
+                    <button class="btn btn-secondary" onclick="switchPage('page-keygen')"
+                        style="padding: 8px 15px; font-size: 12px;">
+                        ← Back to Key Gen
+                    </button>
+                </div>
+
+                <div class="input-group">
+                    <label>Key Length</label>
+                    <input type="number" id="genLength" value="5" min="1" max="50">
+                </div>
+
+                <div class="input-group">
+                    <label>Special Pattern (Binary)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="genPattern" placeholder="e.g. 10110">
+                        <button class="btn btn-secondary" onclick="randomizeGenPattern()"
+                            style="padding: 10px;">🎲</button>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" onclick="runQuantumGen()" style="width: 100%; margin-bottom: 20px;">
+                    Generate Masked Key
+                </button>
+
+                <div id="genResults" class="hidden"
+                    style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px;">
+                    <h3 style="color: #ffd700; font-size: 14px; margin-bottom: 10px;">Generation Results</h3>
+
+                    <div style="margin-bottom: 10px;">
+                        <span style="color: #999; font-size: 12px;">Alice's Random Bits:</span>
+                        <div id="resAliceBits" style="font-family: monospace; color: #81c784; word-break: break-all;">
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 10px;">
+                        <span style="color: #999; font-size: 12px;">Alice's Bases (0=Rect, 1=Diag):</span>
+                        <div id="resAliceBases" style="font-family: monospace; color: #64b5f6; word-break: break-all;">
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <span style="color: #999; font-size: 12px;">Resulting Qubits:</span>
+                        <div id="resQubits"
+                            style="font-family: monospace; color: #ffd700; font-size: 16px; letter-spacing: 3px; word-break: break-all;">
+                        </div>
+                    </div>
+
+                    <div style="font-size: 11px; color: #666;">
+                        * Simulated based on randomkey.py logic
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Logs -->
+        <div class="card" style="margin-top: 0; flex-shrink: 0;">
+            <h2 style="font-size: 14px; margin-bottom: 10px;">📜 System Processes</h2>
+            <div class="logs" id="logContainer" style="margin-top: 0; height: 100px;">
+                <div class="log-entry log-info">→ System initialized</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchPage(pageId) {
+            document.getElementById('page-keygen').classList.add('hidden');
+            document.getElementById('page-messaging').classList.add('hidden');
+            document.getElementById('page-generator').classList.add('hidden');
+            document.getElementById(pageId).classList.remove('hidden');
+        }
+
+        let state = {
+            role: 'alice',
+            pattern: null,
+            patternHash: null,
+            connected: false,
+            sharedKey: null,
+            stats: { qubits: 0, sifted: 0, qber: 0 }
+        };
+
+        function selectRole(role) {
+            state.role = role;
+            document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('alicePatternSetup').classList.toggle('hidden', role !== 'alice');
+            document.getElementById('bobPatternSetup').classList.toggle('hidden', role !== 'bob');
+
+            addLog('info', `Role: ${role.toUpperCase()}`);
+        }
+
+        function toggleSection(id) {
+            const elem = document.getElementById(id);
+            elem.classList.toggle('hidden');
+        }
+
+        function generatePattern() {
+            addLog('info', 'Generating pattern...');
+
+            const length = 1000;
+            const pattern = Array.from({ length }, () => Math.floor(Math.random() * 2));
+            const patternStr = pattern.join('');
+            const patternInt = BigInt('0b' + patternStr);
+            const patternHex = patternInt.toString(16).toUpperCase();
+
+            state.pattern = pattern;
+            state.patternHash = simpleHash(patternStr);
+
+            document.getElementById('patternText').textContent = patternHex;
+            document.getElementById('patternDisplay').classList.remove('hidden');
+            document.getElementById('connectBtn').disabled = false;
+
+            addLog('success', `✓ Pattern generated (${length} bits)`);
+            addLog('info', `Hash: ${state.patternHash.substring(0, 16)}...`);
+        }
+
+        function loadPattern() {
+            const input = document.getElementById('patternInput').value.trim();
+            if (!input) {
+                addLog('error', 'Please enter a pattern');
+                return;
+            }
+
+            addLog('info', 'Loading pattern...');
+
+            try {
+                const patternInt = BigInt('0x' + input);
+                const patternStr = patternInt.toString(2);
+                state.pattern = patternStr.split('').map(b => parseInt(b));
+                state.patternHash = simpleHash(patternStr);
+
+                document.getElementById('connectBtn').disabled = false;
+                addLog('success', `✓ Pattern loaded (${state.pattern.length} bits)`);
+            } catch (e) {
+                addLog('error', 'Invalid pattern');
+            }
+        }
+
+        function copyPattern() {
+            const text = document.getElementById('patternText').textContent;
+            navigator.clipboard.writeText(text);
+            addLog('success', '✓ Copied to clipboard');
+        }
+
+        function establishConnection() {
+            const peerIP = document.getElementById('peerIP').value;
+            addLog('info', `Connecting to ${peerIP}...`);
+            updateConnectionStatus('⏳ Connecting...', 'warning');
+
+            setTimeout(() => {
+                state.connected = true;
+                updateConnectionStatus('✅ Connected', 'success');
+                document.getElementById('securityStatus').classList.remove('hidden');
+                document.getElementById('exchangeBtn').disabled = false;
+                addLog('success', '✓ Connected');
+                performHandshake();
+            }, 1500);
+        }
+
+        function performHandshake() {
+            addLog('info', 'Handshake in progress...');
+            updateSecurityStatus('🤝 Verifying patterns...', 'info');
+
+            setTimeout(() => {
+                addLog('success', '✓ Handshake complete');
+                updateSecurityStatus('✅ Secure Channel Ready', 'success');
+            }, 1000);
+        }
+
+        function startKeyExchange() {
+            const numBits = parseInt(document.getElementById('numBits').value);
+            addLog('info', `Starting BB84 (${numBits} bits)`);
+            updateSecurityStatus('🔄 Key exchange...', 'info');
+            simulateBB84(numBits);
+        }
+
+        function simulateBB84(numBits) {
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+
+                if (progress === 30) {
+                    addLog('info', 'Encoding qubits...');
+                    state.stats.qubits = numBits;
+                    updateStats();
+                } else if (progress === 70) {
+                    addLog('info', 'Sifting bases...');
+                    state.stats.sifted = Math.floor(numBits * 0.5);
+                    updateStats();
+                } else if (progress === 90) {
+                    state.stats.qber = 5.2;
+                    updateStats();
+                } else if (progress === 100) {
+                    clearInterval(interval);
+                    state.sharedKey = Array.from({ length: state.stats.sifted }, () => Math.floor(Math.random() * 2));
+
+                    addLog('success', `✓ QBER: ${state.stats.qber}% - SECURE`);
+                    addLog('success', `✓ Key: ${state.sharedKey.length} bits`);
+                    updateSecurityStatus('🔒 Encrypted Channel Active', 'success');
+
+                    document.getElementById('messageInput').disabled = false;
+                    document.getElementById('sendBtn').disabled = false;
+                    document.getElementById('messageContainer').innerHTML = '<div style="text-align: center; color: #81c784; padding: 20px; font-weight: 500;">🔒 Secure channel established. Start messaging.</div>';
+                    switchPage('page-messaging');
+                }
+            }, 500);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            addLog('info', 'Encrypting...');
+            addMessageToUI(message, 'sent');
+            addLog('success', '✓ Sent');
+            input.value = '';
+
+            setTimeout(() => simulateReceivedMessage(), 2000);
+        }
+
+        function handleMessageKeypress(event) {
+            if (event.key === 'Enter') sendMessage();
+        }
+
+        function simulateReceivedMessage() {
+            const msgs = ["Message received!", "Decrypted ✓", "Quantum secure ✓"];
+            addMessageToUI(msgs[Math.floor(Math.random() * msgs.length)], 'received');
+            addLog('info', '← Message received');
+        }
+
+        function addMessageToUI(text, type) {
+            const container = document.getElementById('messageContainer');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message message-${type}`;
+            const time = new Date().toLocaleTimeString();
+            msgDiv.innerHTML = `<div>${text}</div><div class="message-meta">${time}</div>`;
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash = hash & hash;
+            }
+            return Math.abs(hash).toString(16).padStart(16, '0');
+        }
+
+        function addLog(type, message) {
+            const container = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `[${time}] ${message}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateConnectionStatus(message, statusClass) {
+            const elem = document.getElementById('connectionStatus');
+            elem.textContent = message;
+            elem.className = `status status-${statusClass}`;
+        }
+
+        function updateSecurityStatus(message, statusClass) {
+            const elem = document.getElementById('securityStatus');
+            elem.textContent = message;
+            elem.className = `status status-${statusClass}`;
+        }
+
+        function updateStats() {
+            document.getElementById('statQubits').textContent = state.stats.qubits;
+            document.getElementById('statSifted').textContent = state.stats.sifted;
+            document.getElementById('statQBER').textContent = state.stats.qber.toFixed(1) + '%';
+        }
+
+        // Generator Functions
+        function randomizeGenPattern() {
+            const len = parseInt(document.getElementById('genLength').value) || 5;
+            const pat = Array.from({ length: len }, () => Math.floor(Math.random() * 2)).join('');
+            document.getElementById('genPattern').value = pat;
+        }
+
+        function runQuantumGen() {
+            const length = parseInt(document.getElementById('genLength').value) || 5;
+            let patternStr = document.getElementById('genPattern').value.trim();
+
+            // Validate/Pad pattern
+            if (patternStr.length !== length) {
+                randomizeGenPattern();
+                patternStr = document.getElementById('genPattern').value;
+                addLog('warning', 'Pattern length adjusted to match key length');
+            }
+
+            const pattern = patternStr.split('').map(b => parseInt(b));
+
+            // 1. Generate random bits and bases
+            const aliceBits = Array.from({ length }, () => Math.floor(Math.random() * 2));
+            const aliceBases = Array.from({ length }, () => Math.floor(Math.random() * 2));
+
+            // 2. Apply Mask (XOR)
+            const maskedBits = aliceBits.map((b, i) => b ^ pattern[i]);
+
+            // 3. Encode
+            let qubitSymbols = [];
+            for (let i = 0; i < length; i++) {
+                if (aliceBases[i] === 0) { // Rectilinear (+ = |0>/|1>)
+                    if (maskedBits[i] === 0) qubitSymbols.push('|0⟩');
+                    else qubitSymbols.push('|1⟩'); // X gate
+                } else { // Diagonal (x = |+>/|->)
+                    // if masked is 0 -> H -> |+>
+                    // if masked is 1 -> X, H -> |->
+                    if (maskedBits[i] === 0) qubitSymbols.push('|+⟩');
+                    else qubitSymbols.push('|-⟩');
+                }
+            }
+
+            // Display
+            document.getElementById('resAliceBits').textContent = JSON.stringify(aliceBits);
+            document.getElementById('resAliceBases').textContent = JSON.stringify(aliceBases);
+            document.getElementById('resQubits').textContent = qubitSymbols.join(' ');
+            document.getElementById('genResults').classList.remove('hidden');
+
+            addLog('success', `✓ Generated ${length} masked qubits`);
+        }
+    </script>
+</body>
+
+</html>
