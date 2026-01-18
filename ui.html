@@ -567,6 +567,45 @@
                 opacity: 1;
             }
         }
+
+        .light-mode {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+        }
+
+        .light-mode .card,
+        .light-mode .menu-item,
+        .light-mode .input-group input,
+        .light-mode .input-group textarea,
+        .light-mode .stat-card {
+            background: rgba(255, 255, 255, 0.85);
+            border-color: rgba(0, 0, 0, 0.1);
+            color: #333;
+        }
+
+        .light-mode .card h2,
+        .light-mode .stat-value,
+        .light-mode .menu-label,
+        .light-mode .input-group label {
+            color: #2c3e50;
+        }
+
+        .light-mode .menu-icon {
+            color: #555;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .light-mode .btn-secondary {
+            background: rgba(0, 0, 0, 0.05);
+            color: #333;
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .light-mode .logs {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 
@@ -598,39 +637,7 @@
 
                     <div class="section-divider"></div>
 
-                    <!-- Pattern Setup -->
-                    <div class="menu-item" onclick="toggleSection('patternSetup')">
-                        <div class="menu-item-left">
-                            <div class="menu-icon">🔑</div>
-                            <div class="menu-label">Special Pattern</div>
-                        </div>
-                        <div class="menu-arrow">›</div>
-                    </div>
 
-                    <div id="patternSetup" class="hidden" style="margin-top: 15px;">
-                        <div id="alicePatternSetup">
-                            <button class="btn btn-primary" onclick="generatePattern()" style="width: 100%;">
-                                Generate Pattern
-                            </button>
-                        </div>
-
-                        <div id="bobPatternSetup" class="hidden">
-                            <div class="input-group">
-                                <label>Paste Pattern from Alice</label>
-                                <textarea id="patternInput" rows="3" placeholder="Enter pattern here..."></textarea>
-                            </div>
-                            <button class="btn btn-primary" onclick="loadPattern()" style="width: 100%;">
-                                Load Pattern
-                            </button>
-                        </div>
-
-                        <div id="patternDisplay" class="hidden">
-                            <div class="pattern-display" id="patternText"></div>
-                            <button class="btn btn-secondary" onclick="copyPattern()" style="width: 100%;">
-                                📋 Copy to Clipboard
-                            </button>
-                        </div>
-                    </div>
 
                     <div class="section-divider"></div>
 
@@ -668,12 +675,12 @@
                     <div class="section-divider"></div>
 
                     <!-- Settings -->
-                    <div class="menu-item">
+                    <div class="menu-item" onclick="toggleTheme()">
                         <div class="menu-item-left">
                             <div class="menu-icon">🌙</div>
                             <div class="menu-label">Dark Mode</div>
                         </div>
-                        <div class="toggle-switch active">
+                        <div class="toggle-switch active" id="themeToggle">
                             <div class="toggle-slider"></div>
                         </div>
                     </div>
@@ -863,53 +870,25 @@
             elem.classList.toggle('hidden');
         }
 
-        function generatePattern() {
-            addLog('info', 'Generating pattern...');
+        function toggleTheme() {
+            document.body.classList.toggle('light-mode');
+            const toggle = document.getElementById('themeToggle');
+            toggle.classList.toggle('active');
 
-            const length = 1000;
-            const pattern = Array.from({ length }, () => Math.floor(Math.random() * 2));
-            const patternStr = pattern.join('');
-            const patternInt = BigInt('0b' + patternStr);
-            const patternHex = patternInt.toString(16).toUpperCase();
-
-            state.pattern = pattern;
-            state.patternHash = simpleHash(patternStr);
-
-            document.getElementById('patternText').textContent = patternHex;
-            document.getElementById('patternDisplay').classList.remove('hidden');
-            document.getElementById('connectBtn').disabled = false;
-
-            addLog('success', `✓ Pattern generated (${length} bits)`);
-            addLog('info', `Hash: ${state.patternHash.substring(0, 16)}...`);
-        }
-
-        function loadPattern() {
-            const input = document.getElementById('patternInput').value.trim();
-            if (!input) {
-                addLog('error', 'Please enter a pattern');
-                return;
-            }
-
-            addLog('info', 'Loading pattern...');
-
-            try {
-                const patternInt = BigInt('0x' + input);
-                const patternStr = patternInt.toString(2);
-                state.pattern = patternStr.split('').map(b => parseInt(b));
-                state.patternHash = simpleHash(patternStr);
-
-                document.getElementById('connectBtn').disabled = false;
-                addLog('success', `✓ Pattern loaded (${state.pattern.length} bits)`);
-            } catch (e) {
-                addLog('error', 'Invalid pattern');
+            const isDark = toggle.classList.contains('active');
+            const icon = document.querySelector('.menu-icon:contains("🌙")'); // This selector might be fragile in pure JS if text not exact, but icon text is 🌙
+            // Simpler: just update UI state
+            if (!isDark) {
+                // Light mode active
+                toggle.parentElement.querySelector('.menu-icon').textContent = '☀️';
+                toggle.parentElement.querySelector('.menu-label').textContent = 'Light Mode';
+            } else {
+                toggle.parentElement.querySelector('.menu-icon').textContent = '🌙';
+                toggle.parentElement.querySelector('.menu-label').textContent = 'Dark Mode';
             }
         }
 
-        function copyPattern() {
-            const text = document.getElementById('patternText').textContent;
-            navigator.clipboard.writeText(text);
-            addLog('success', '✓ Copied to clipboard');
-        }
+
 
         function establishConnection() {
             const peerIP = document.getElementById('peerIP').value;
@@ -1052,7 +1031,7 @@
             document.getElementById('genPattern').value = pat;
         }
 
-        function runQuantumGen() {
+        async function runQuantumGen() {
             const length = parseInt(document.getElementById('genLength').value) || 5;
             let patternStr = document.getElementById('genPattern').value.trim();
 
@@ -1065,34 +1044,33 @@
 
             const pattern = patternStr.split('').map(b => parseInt(b));
 
-            // 1. Generate random bits and bases
-            const aliceBits = Array.from({ length }, () => Math.floor(Math.random() * 2));
-            const aliceBases = Array.from({ length }, () => Math.floor(Math.random() * 2));
+            addLog('info', 'Requesting Quantum Generation from Alice...');
 
-            // 2. Apply Mask (XOR)
-            const maskedBits = aliceBits.map((b, i) => b ^ pattern[i]);
+            try {
+                const response = await fetch('/api/generate_keys', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ length, pattern })
+                });
 
-            // 3. Encode
-            let qubitSymbols = [];
-            for (let i = 0; i < length; i++) {
-                if (aliceBases[i] === 0) { // Rectilinear (+ = |0>/|1>)
-                    if (maskedBits[i] === 0) qubitSymbols.push('|0⟩');
-                    else qubitSymbols.push('|1⟩'); // X gate
-                } else { // Diagonal (x = |+>/|->)
-                    // if masked is 0 -> H -> |+>
-                    // if masked is 1 -> X, H -> |->
-                    if (maskedBits[i] === 0) qubitSymbols.push('|+⟩');
-                    else qubitSymbols.push('|-⟩');
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.statusText}`);
                 }
+
+                const data = await response.json();
+
+                // Display Results
+                document.getElementById('resAliceBits').textContent = JSON.stringify(data.aliceBits);
+                document.getElementById('resAliceBases').textContent = JSON.stringify(data.aliceBases);
+                document.getElementById('resQubits').textContent = data.qubitSymbols.join(' ');
+                document.getElementById('genResults').classList.remove('hidden');
+
+                addLog('success', `✓ Generated ${length} masked qubits (Backend Verified)`);
+
+            } catch (error) {
+                console.error(error);
+                addLog('error', 'Failed to generate keys: ' + error.message);
             }
-
-            // Display
-            document.getElementById('resAliceBits').textContent = JSON.stringify(aliceBits);
-            document.getElementById('resAliceBases').textContent = JSON.stringify(aliceBases);
-            document.getElementById('resQubits').textContent = qubitSymbols.join(' ');
-            document.getElementById('genResults').classList.remove('hidden');
-
-            addLog('success', `✓ Generated ${length} masked qubits`);
         }
     </script>
 </body>
