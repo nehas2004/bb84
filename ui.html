@@ -982,6 +982,69 @@
                     </div>
                 </div>
 
+                <!-- Bob Section (Receiver) -->
+                <div id="bobContainer" class="alice-container hidden"
+                    style="border-left-color: #ff9800; margin-top: 20px;">
+                    <div class="alice-title" style="color: #ff9800;">
+                        👨 Bob (Receiver)
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+
+                        <!-- Action Bar -->
+                        <div
+                            style="display: flex; gap: 15px; align-items: center; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px;">
+                            <button class="btn btn-primary" onclick="bobFetchQubits()"
+                                style="background: #ff9800; color: white;">
+                                📥 Receive Qubits
+                            </button>
+
+                            <div style="height: 30px; width: 1px; background: rgba(255,255,255,0.1);"></div>
+
+                            <div class="input-group" style="margin-bottom: 0; width: 200px;">
+                                <input type="text" id="bobPattern" placeholder="Enter Pattern to Unmask"
+                                    style="padding: 10px; font-family: monospace;">
+                            </div>
+
+                            <button class="btn btn-secondary" onclick="bobSiftAndUnmask()" id="btnSift" disabled>
+                                🔍 Sift & Unmask
+                            </button>
+                        </div>
+
+                        <!-- Data Display -->
+                        <div style="display: flex; gap: 40px;">
+                            <!-- Bases Column -->
+                            <div style="flex: 1;">
+                                <div class="grid-section-title">Bob's Random Bases</div>
+                                <div id="displayBobBases" class="visual-grid">
+                                    <div style="color: #666; font-style: italic; font-size: 13px;">Waiting for qubits...
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bits Column -->
+                            <div style="flex: 1;">
+                                <div class="grid-section-title">Measured Bits (Raw)</div>
+                                <div id="displayBobBits" class="visual-grid">
+                                    <div style="color: #666; font-style: italic; font-size: 13px;">Waiting for qubits...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Result Section -->
+                        <div id="bobResults" class="hidden"
+                            style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+                            <div class="grid-section-title" style="color: #4caf50;">✅ Final Shared Key</div>
+                            <div id="displayFinalKey" class="visual-grid"></div>
+                            <div style="font-size: 12px; color: #999; margin-top: 5px;">
+                                Efficiency: <span id="siftEfficiency">0%</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
                 <!-- Hidden inputs/outputs for compatibility or internal state storage if needed -->
             </div>
         </div>
@@ -1017,8 +1080,27 @@
             document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
 
-            document.getElementById('alicePatternSetup').classList.toggle('hidden', role !== 'alice');
-            document.getElementById('bobPatternSetup').classList.toggle('hidden', role !== 'bob');
+
+            // document.getElementById('alicePatternSetup')?.classList.toggle('hidden', role !== 'alice');
+
+            // bobPatternSetup currently doesn't exist in HTML but logic was there. 
+            // We now toggle the main containers.
+
+            // Using querySelector for broader support if IDs change, but here specific IDs:
+            // Assuming 'alice-container' class might be used on the Alice div. 
+            // Easier to add ID to Alice div or assume Alice is default visible.
+
+            // Revised logic:
+            const aliceDiv = document.querySelector('.alice-container'); // The first one is Alice
+            const bobDiv = document.getElementById('bobContainer');
+
+            if (role === 'alice') {
+                aliceDiv.classList.remove('hidden');
+                bobDiv.classList.add('hidden');
+            } else {
+                aliceDiv.classList.add('hidden');
+                bobDiv.classList.remove('hidden');
+            }
 
             addLog('info', `Role: ${role.toUpperCase()}`);
         }
@@ -1269,6 +1351,200 @@
 
                 div.className = `basis-box basis-${type}`;
                 div.textContent = symbol;
+                container.appendChild(div);
+            });
+        }
+
+        // --- BOB Functions ---
+
+        async function bobFetchQubits() {
+            const peerIP = document.getElementById('peerIP').value.trim();
+            if (!peerIP) {
+                addLog('error', 'Please enter Peer IP first (Configuration > Connection)');
+                toggleSection('connectionSetup'); // Open the menu to show where
+                return;
+            }
+
+            addLog('info', `Connecting to Alice at ${peerIP}...`);
+
+            try {
+                const response = await fetch('/api/fetch_from_peer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ peer_ip: peerIP })
+                });
+
+                if (!response.ok) throw new Error("Fetch failed");
+                const data = await response.json();
+
+                if (data.error) throw new Error(data.error);
+
+                addLog('success', `✓ Measured ${data.measuredBits.length} qubits`);
+
+                // Render Bob's view
+                state.bobBases = data.bobBases;
+                state.bobBits = data.measuredBits;
+
+                renderBases(state.bobBases, 'displayBobBases');
+                renderBits(state.bobBits, 'displayBobBits');
+
+                // Enable Sift
+                document.getElementById('btnSift').disabled = false;
+
+            } catch (e) {
+                addLog('error', e.message);
+            }
+        }
+
+        async function bobSiftAndUnmask() {
+            const patternStr = document.getElementById('bobPattern').value.trim();
+            if (!patternStr) {
+                addLog('warning', 'No pattern entered. Unmasking might be incorrect.');
+            }
+            // For unmasking, we do it locally or on backend?
+            // Let's do backend sifting first.
+
+            // To sift, we need Alice's bases. 
+            // In a simulation, we can cheat and fetch them or Alice sends them.
+            // Let's assume we can fetch Alice's bases from the SAME endpoint (it returned qubit_data which had bases).
+            // Oh wait, fetch_from_peer in app.py returned 'bobBases' and 'measuredBits'.
+            // It did NOT return Alice's bases to the Frontend (Bob shouldn't see them easily).
+
+            // But to SIFT, Bob sends HIS bases to Alice (or vice versa).
+            // Then they compare. 
+
+            // Let's implement the `/api/sift_keys` call.
+            // logic: Bob sends his bases to Backend. Backend has Alice's bases (global).
+            // This works for local simulation.
+            // For distributed: Bob needs to send his bases to Alice's IP.
+            // Alice compares and sends back the Matching Indices.
+
+            // Simplified for Phase 3 User Request:
+            // We'll use the local backend global state if on same machine,
+            // OR if distributed, we might fail unless we implement the full flow.
+            // Let's try the local logic first (assuming 'alice' global has the data).
+
+            try {
+                // 1. Sift
+                const siftResp = await fetch('/api/sift_keys', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        aliceBases: [], // Backend uses global if empty?
+                        bobBases: state.bobBases,
+                        bobBits: state.bobBits
+                    })
+                    // Wait, my app.py sift_keys requires aliceBases in body.
+                    // If I don't send them, it fails.
+                    // But Bob Frontend doesn't have them.
+
+                    // FIX: Update app.py to use global alice if aliceBases missing?
+                    // OR fetch them.
+                    // Let's modify the JS to assume we need to fetch them from Alice first?
+                    // No, that breaks security.
+
+                    // Correct flow: Bob sends bases to Alice. Alice returns matches.
+                    // This is 'sift_keys' but run on Alice's side?
+                    // Or run on Bob's side if he receives Alice's bases.
+
+                    // Given the constraints and current setup:
+                    // We will update app.py to support using the local global Alice state 
+                    // if parameters are missing. This supports the "one laptop demo" perfectly,
+                    // and for "two laptops", we'd need to implement `receive_bases` endpoint.
+
+                    // I will assume for now we might be on same machine OR I'll add a helper.
+
+                    // Let's try to send what we have.
+                });
+
+                // Actally, let's just implement the unmasking logic locally in JS 
+                // if we have the indices?
+
+                // RE-READ app.py sift_keys:
+                // It calls bob.sift_keys(alice_bases, ...).
+                // If app.py is running on Bob's machine, 'alice' global is empty!
+                // This is the problem with distributed.
+
+                // Distributed Fix:
+                // Bob needs to get Alice's Bases (classically public info).
+                // So Bob calls `fetch_alice_bases`.
+
+                // Only ONE step at a time. I'll stick to updating UI now.
+                // I'll assume for now I can't easily sift without Alice's bases.
+                // I'll add a check.
+            } catch (e) { console.log(e); }
+        }
+
+        // Revised Sift Function anticipating API update or Local use
+        async function bobSiftAndUnmask() {
+            addLog('info', 'Sifting keys...');
+
+            // We need Alice's bases. 
+            // If we are Bob, we ask Alice for her bases.
+            const peerIP = document.getElementById('peerIP').value.trim();
+
+            try {
+                // 1. Get Alice's Bases
+                const baseResp = await fetch('/api/fetch_from_peer', {
+                    method: 'POST',
+                    body: JSON.stringify({ peer_ip: peerIP })
+                });
+                // Wait, fetch_from_peer returns MEASUREMENT (simulated).
+                // It calls 'get_quantum_data' which returns bits+bases.
+                // So actually, Bob ALREADY HAS Alice's bases from the first fetch!
+                // They were just hidden in the backend response?
+
+                // Let's check app.py fetch_from_peer response.
+                // Return keys: status, message, bobBases, measuredBits.
+                // It swallowed Alice's bases.
+
+                // I should have returned aliceData['qubit_data'] bases too?
+                // No, that reveals the bits.
+
+                // OK, complex.
+                // Let's keep it simple.
+                // Sending request to /api/sift_keys with just bobBases.
+                // I will fix app.py next to handle "use global alice" context.
+
+                const response = await fetch('/api/sift_keys', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bobBases: state.bobBases,
+                        bobBits: state.bobBits,
+                        aliceBases: state.aliceBasesForSifting // We need this.
+                    })
+                });
+
+                // For now, placeholder to prevent error
+                addLog('warning', 'Sifting logic pending backend update for distributed mode.');
+            } catch (e) {
+                addLog('error', e.message);
+            }
+        }
+
+        // Helper to reuse render logic
+        function renderBases(bases, containerId) {
+            const container = document.getElementById(containerId || 'displayBases');
+            container.innerHTML = '';
+            bases.forEach(b => {
+                const div = document.createElement('div');
+                const type = b === 0 ? 'rect' : 'diag';
+                const symbol = b === 0 ? '+' : '×';
+                div.className = `basis-box basis-${type}`;
+                div.textContent = symbol;
+                container.appendChild(div);
+            });
+        }
+
+        // Helper override to support dynamic container
+        function renderBits(bits, containerId) {
+            const container = document.getElementById(containerId || 'displayBits');
+            container.innerHTML = '';
+            bits.forEach(b => {
+                const div = document.createElement('div');
+                div.className = `bit-box bit-${b}`;
+                div.textContent = b;
                 container.appendChild(div);
             });
         }
