@@ -100,7 +100,8 @@
         }
 
         #page-keygen,
-        #page-messaging {
+        #page-messaging,
+        #page-generator {
             flex: 1;
             min-height: 0;
             overflow-y: auto;
@@ -606,6 +607,131 @@
             color: #333;
             border: 1px solid rgba(0, 0, 0, 0.1);
         }
+
+        /* NEW STYLES FOR PHASE 2 REDESIGN */
+        .control-panel-container {
+            background: #1a1a20;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .cp-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            color: #e0e0e0;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+
+        .alice-container {
+            background: #1a1a20;
+            padding: 25px;
+            border-radius: 15px;
+            /* Rounded corners */
+            border-left: 4px solid #00bcd4;
+            /* Cyan accent */
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .alice-title {
+            color: #00bcd4;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            margin-bottom: 25px;
+            font-weight: 500;
+        }
+
+        .grid-section-title {
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .visual-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 15px;
+        }
+
+        .bit-box {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 14px;
+            color: white;
+            transition: transform 0.2s;
+        }
+
+        .bit-box:hover {
+            transform: scale(1.1);
+        }
+
+        .bit-0 {
+            background-color: #154c79;
+            border: 1px solid #1e6091;
+        }
+
+        .bit-1 {
+            background-color: #792e2e;
+            border: 1px solid #9e3a3a;
+        }
+
+        .basis-box {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            /* Distinct shape from bits if desired */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 16px;
+            color: white;
+            transition: transform 0.2s;
+        }
+
+        .basis-box:hover {
+            transform: scale(1.1);
+        }
+
+        /* Bases: + (Rectilinear) vs x (Diagonal) */
+        .basis-rect {
+            background-color: #1b5e20;
+            border: 1px solid #2e7d32;
+        }
+
+        /* Green */
+        .basis-diag {
+            background-color: #4a148c;
+            border: 1px solid #6a1b9a;
+        }
+
+        /* Purple */
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 5px;
+            margin-top: 5px;
+            color: #ccc;
+            font-size: 13px;
+        }
     </style>
 </head>
 
@@ -769,62 +895,94 @@
 
             </div>
         </div>
-        <!-- Page: Quantum Generator -->
+        <!-- Page: Quantum Generator (Redesigned Phase 2) -->
         <div id="page-generator" class="hidden">
-            <div class="card" style="max-width: 800px; margin: 0 auto; padding-right: 15px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2 style="margin: 0;">⚛️ Quantum Random Key Generator</h2>
+            <div style="max-width: 1000px; margin: 0 auto; padding-bottom: 50px;">
+
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
                     <button class="btn btn-secondary" onclick="switchPage('page-keygen')"
                         style="padding: 8px 15px; font-size: 12px;">
-                        ← Back to Key Gen
+                        ← Back to Menu
                     </button>
                 </div>
 
-                <div class="input-group">
-                    <label>Key Length</label>
-                    <input type="number" id="genLength" value="5" min="1" max="50">
-                </div>
-
-                <div class="input-group">
-                    <label>Special Pattern (Binary)</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="genPattern" placeholder="e.g. 10110">
-                        <button class="btn btn-secondary" onclick="randomizeGenPattern()"
-                            style="padding: 10px;">🎲</button>
+                <!-- Control Panel -->
+                <div class="control-panel-container">
+                    <div class="cp-header">
+                        ⚙️ Control Panel
                     </div>
-                </div>
 
-                <button class="btn btn-primary" onclick="runQuantumGen()" style="width: 100%; margin-bottom: 20px;">
-                    Generate Masked Key
-                </button>
+                    <div style="display: flex; align-items: flex-end; gap: 20px;">
+                        <div class="input-group" style="margin-bottom:0; width: 200px;">
+                            <label>Number of Photons (N)</label>
+                            <input type="number" id="genLength" value="50" min="1" max="500">
+                        </div>
 
-                <div id="genResults" class="hidden"
-                    style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px;">
-                    <h3 style="color: #ffd700; font-size: 14px; margin-bottom: 10px;">Generation Results</h3>
+                        <button class="btn btn-primary" onclick="runQuantumGen()"
+                            style="height: 48px; background: #2196f3; color: white; border: none;">
+                            Generate Random Data
+                        </button>
+                    </div>
 
-                    <div style="margin-bottom: 10px;">
-                        <span style="color: #999; font-size: 12px;">Alice's Random Bits:</span>
-                        <div id="resAliceBits" style="font-family: monospace; color: #81c784; word-break: break-all;">
+                    <!-- Special Pattern Input (Restored) -->
+                    <div style="margin-top: 20px; display: flex; align-items: flex-end; gap: 15px;">
+                        <div class="input-group" style="margin-bottom:0; flex: 1;">
+                            <label>Special Pattern (Binary Mask)</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="genPattern" placeholder="e.g. 10110 (Auto-generated if empty)"
+                                    style="font-family: monospace; letter-spacing: 2px;">
+                                <button class="btn btn-secondary" onclick="randomizeGenPattern()"
+                                    style="padding: 10px 15px;">🎲 Randomize</button>
+                            </div>
                         </div>
                     </div>
 
-                    <div style="margin-bottom: 10px;">
-                        <span style="color: #999; font-size: 12px;">Alice's Bases (0=Rect, 1=Diag):</span>
-                        <div id="resAliceBases" style="font-family: monospace; color: #64b5f6; word-break: break-all;">
-                        </div>
-                    </div>
-
-                    <div style="margin-bottom: 15px;">
-                        <span style="color: #999; font-size: 12px;">Resulting Qubits:</span>
-                        <div id="resQubits"
-                            style="font-family: monospace; color: #ffd700; font-size: 16px; letter-spacing: 3px; word-break: break-all;">
-                        </div>
-                    </div>
-
-                    <div style="font-size: 11px; color: #666;">
-                        * Simulated based on randomkey.py logic
+                    <div style="margin-top: 15px; color: #666; font-size: 12px;">
+                        Uses Python's secrets module for cryptographically secure random number generation. The pattern
+                        is XORed with Alice's bits.
                     </div>
                 </div>
+
+                <!-- Alice Section -->
+                <div class="alice-container">
+                    <div class="alice-title">
+                        👩 Alice (Sender)
+                    </div>
+
+                    <div style="display: flex; gap: 40px;">
+                        <!-- Bits Column -->
+                        <div style="flex: 1;">
+                            <div class="grid-section-title">Random Bits</div>
+                            <div id="displayBits" class="visual-grid">
+                                <!-- Populated by JS -->
+                                <div style="color: #666; font-style: italic; font-size: 13px;">No data generated yet.
+                                </div>
+                            </div>
+
+                            <div id="bitStats" class="hidden">
+                                <div class="stat-row">
+                                    <span>Zeros:</span>
+                                    <span id="countZeros">0</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span>Ones:</span>
+                                    <span id="countOnes">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bases Column -->
+                        <div style="flex: 1;">
+                            <div class="grid-section-title">Random Bases</div>
+                            <div id="displayBases" class="visual-grid">
+                                <div style="color: #666; font-style: italic; font-size: 13px;">No data generated yet.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hidden inputs/outputs for compatibility or internal state storage if needed -->
             </div>
         </div>
 
@@ -1032,19 +1190,25 @@
         }
 
         async function runQuantumGen() {
-            const length = parseInt(document.getElementById('genLength').value) || 5;
+            const length = parseInt(document.getElementById('genLength').value) || 50;
             let patternStr = document.getElementById('genPattern').value.trim();
 
-            // Validate/Pad pattern
+            // Auto-generate pattern if empty or length mismatch (to ensure valid XOR)
             if (patternStr.length !== length) {
-                randomizeGenPattern();
-                patternStr = document.getElementById('genPattern').value;
-                addLog('warning', 'Pattern length adjusted to match key length');
+                // If mismatch or empty, we generate a random pattern to match length
+                // The user originally asked for the specialized pattern generator not to be eliminated.
+                // If they typed something partial, maybe warn? But for smooth UX, let's regenerate/pad.
+                const newPat = Array.from({ length: length }, () => Math.floor(Math.random() * 2)).join('');
+                document.getElementById('genPattern').value = newPat;
+                patternStr = newPat;
+                if (patternStr.length > 0) { // Only log if it wasn't just empty default
+                    addLog('warning', `Pattern adjusted to match N=${length}`);
+                }
             }
 
             const pattern = patternStr.split('').map(b => parseInt(b));
 
-            addLog('info', 'Requesting Quantum Generation from Alice...');
+            addLog('info', `Requesting ${length} secure quantum states...`);
 
             try {
                 const response = await fetch('/api/generate_keys', {
@@ -1059,18 +1223,54 @@
 
                 const data = await response.json();
 
-                // Display Results
-                document.getElementById('resAliceBits').textContent = JSON.stringify(data.aliceBits);
-                document.getElementById('resAliceBases').textContent = JSON.stringify(data.aliceBases);
-                document.getElementById('resQubits').textContent = data.qubitSymbols.join(' ');
-                document.getElementById('genResults').classList.remove('hidden');
+                // Render grids
+                renderBits(data.aliceBits);
+                renderBases(data.aliceBases);
 
-                addLog('success', `✓ Generated ${length} masked qubits (Backend Verified)`);
+                addLog('success', `✓ Received ${data.aliceBits.length} secure bits from backend`);
 
             } catch (error) {
                 console.error(error);
-                addLog('error', 'Failed to generate keys: ' + error.message);
+                addLog('error', 'Gen failed: ' + error.message);
             }
+        }
+
+        function renderBits(bits) {
+            const container = document.getElementById('displayBits');
+            container.innerHTML = '';
+
+            let zeros = 0;
+            let ones = 0;
+
+            bits.forEach(b => {
+                const div = document.createElement('div');
+                div.className = `bit-box bit-${b}`;
+                div.textContent = b;
+                container.appendChild(div);
+
+                if (b === 0) zeros++; else ones++;
+            });
+
+            // Update stats
+            document.getElementById('countZeros').textContent = `${zeros} (${Math.round(zeros / bits.length * 100)}%)`;
+            document.getElementById('countOnes').textContent = `${ones} (${Math.round(ones / bits.length * 100)}%)`;
+            document.getElementById('bitStats').classList.remove('hidden');
+        }
+
+        function renderBases(bases) {
+            const container = document.getElementById('displayBases');
+            container.innerHTML = '';
+
+            bases.forEach(b => {
+                const div = document.createElement('div');
+                // 0 = Rect (+), 1 = Diag (x)
+                const type = b === 0 ? 'rect' : 'diag';
+                const symbol = b === 0 ? '+' : '×'; // Using multiplication sign for x
+
+                div.className = `basis-box basis-${type}`;
+                div.textContent = symbol;
+                container.appendChild(div);
+            });
         }
     </script>
 </body>

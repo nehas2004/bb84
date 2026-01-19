@@ -27,8 +27,8 @@ def generate_keys():
     alice.prepare_quantum_states(length, pattern)
     
     # Get the raw data from Alice
-    raw_bits = alice.raw_bits.tolist()
-    bases = alice.bases.tolist()
+    raw_bits = alice.raw_bits
+    bases = alice.bases
     
     # Derive masked bits and symbols for UI
     # masked_bits = raw_bits ^ pattern

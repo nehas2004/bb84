@@ -1,15 +1,17 @@
-import numpy as np
+import secrets
 from qiskit import QuantumCircuit
-from qiskit_aer import Aer
 
 def generate_masked_key(length, special_pattern):
-    # 1. Generate random bits and random bases
-    alice_bits = np.random.randint(2, size=length)
-    alice_bases = np.random.randint(2, size=length) # 0=Rectilinear, 1=Diagonal
+    # 1. Generate cryptographically secure random bits and bases
+    # using secrets module
+    alice_bits = [secrets.choice([0, 1]) for _ in range(length)]
+    alice_bases = [secrets.choice([0, 1]) for _ in range(length)] # 0=Rectilinear, 1=Diagonal
     
     # 2. Apply the Special Pattern Mask (XOR)
     # Ensure special_pattern is the same length as the key
-    masked_bits = alice_bits ^ special_pattern 
+    # We assume distinct implementation elsewhere handles length checks, 
+    # but here we zip to be safe.
+    masked_bits = [b ^ p for b, p in zip(alice_bits, special_pattern)]
     
     encoded_qubits = []
     
@@ -32,7 +34,7 @@ def generate_masked_key(length, special_pattern):
 
 # Example:
 if __name__ == "__main__":
-    pattern = np.array([1, 0, 1, 1, 0]) 
+    pattern = [1, 0, 1, 1, 0] 
     raw_bits, bases, qubits = generate_masked_key(5, pattern)
     print(f"Alice's Secret Bits: {raw_bits}")
     print("Backend check passed!")

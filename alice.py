@@ -1,7 +1,7 @@
 
-import numpy as np
-from node import Node
+
 import randomkey
+from node import Node
 
 class Alice(Node):
     def __init__(self):
@@ -13,8 +13,8 @@ class Alice(Node):
     def prepare_quantum_states(self, length, special_pattern):
         self.log(f"Generating {length} bits with pattern {special_pattern}...")
         
-        # Ensure pattern is a numpy array
-        pattern_arr = np.array(special_pattern)
+        # Use simple list (received from Flask as list of ints anyway)
+        pattern_arr = special_pattern
         
         # Call the existing module to do the heavy lifting
         self.raw_bits, self.bases, self.encoded_qubits = randomkey.generate_masked_key(length, pattern_arr)
