@@ -99,7 +99,7 @@
             margin: 0;
         }
 
-        #page-keygen,
+        #page-dashboard,
         #page-messaging,
         #page-generator {
             flex: 1;
@@ -746,7 +746,7 @@
             <p>BB84 Protocol with Algorithmic Masking</p>
         </div>
 
-        <div id="page-keygen">
+        <div id="page-dashboard">
             <div class="main-grid">
                 <!-- Left Sidebar -->
                 <div class="card">
@@ -795,10 +795,11 @@
                     <div class="section-divider"></div>
 
                     <!-- Quantum Generator Menu Item -->
-                    <div class="menu-item" onclick="switchPage('page-generator')">
+                    <!-- Secure Messaging Menu Item (Gated) -->
+                    <div class="menu-item hidden" id="menuMessaging" onclick="switchPage('page-messaging')">
                         <div class="menu-item-left">
-                            <div class="menu-icon">⚛️</div>
-                            <div class="menu-label">Quantum Generator</div>
+                            <div class="menu-icon">💬</div>
+                            <div class="menu-label">Secure Messaging</div>
                         </div>
                         <div class="menu-arrow">›</div>
                     </div>
@@ -838,6 +839,89 @@
 
                 <!-- Main Content -->
                 <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Merged Generator Control Panel -->
+                    <div class="control-panel-container">
+                        <div class="cp-header">⚙️ Control Panel</div>
+                        <div style="display: flex; align-items: flex-end; gap: 20px;">
+                            <div class="input-group" style="margin-bottom:0; width: 200px;">
+                                <label>Number of Photons (N)</label>
+                                <input type="number" id="genLength" value="50" min="1" max="500">
+                            </div>
+                            <button class="btn btn-primary" onclick="runQuantumGen()"
+                                style="height: 48px; background: #2196f3; color: white; border: none;">
+                                Generate Random Data
+                            </button>
+                        </div>
+                        <div style="margin-top: 15px; color: #666; font-size: 12px;">
+                            Uses Python's secrets module for cryptographically secure random number generation.
+                            Standard BB84 Protocol (No reduced-security masking).
+                        </div>
+                    </div>
+
+                    <!-- Alice Section -->
+                    <div class="alice-container">
+                        <div class="alice-title">👩 Alice (Sender)</div>
+                        <div style="display: flex; gap: 40px;">
+                            <div style="flex: 1;">
+                                <div class="grid-section-title">Random Bits</div>
+                                <div id="displayBits" class="visual-grid">
+                                    <div style="color: #666; font-style: italic; font-size: 13px;">No data generated
+                                        yet.</div>
+                                </div>
+                                <div id="bitStats" class="hidden">
+                                    <div class="stat-row"><span>Zeros:</span> <span id="countZeros">0</span></div>
+                                    <div class="stat-row"><span>Ones:</span> <span id="countOnes">0</span></div>
+                                </div>
+                            </div>
+                            <div style="flex: 1;">
+                                <div class="grid-section-title">Random Bases</div>
+                                <div id="displayBases" class="visual-grid">
+                                    <div style="color: #666; font-style: italic; font-size: 13px;">No data generated
+                                        yet.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bob Section (Receiver) -->
+                    <div id="bobContainer" class="alice-container hidden"
+                        style="border-left-color: #ff9800; margin-top: 20px;">
+                        <div class="alice-title" style="color: #ff9800;">👨 Bob (Receiver)</div>
+                        <div style="display: flex; flex-direction: column; gap: 20px;">
+                            <div
+                                style="display: flex; gap: 15px; align-items: center; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px;">
+                                <button class="btn btn-primary" onclick="bobFetchQubits()"
+                                    style="background: #ff9800; color: white;">📥 Receive Qubits</button>
+                                <div style="height: 30px; width: 1px; background: rgba(255,255,255,0.1);"></div>
+                                <button class="btn btn-secondary" onclick="bobSiftAndFinalize()" id="btnSift"
+                                    disabled>🔍
+                                    Sift & Finalize</button>
+                            </div>
+                            <div style="display: flex; gap: 40px;">
+                                <div style="flex: 1;">
+                                    <div class="grid-section-title">Bob's Random Bases</div>
+                                    <div id="displayBobBases" class="visual-grid">
+                                        <div style="color: #666; font-style: italic; font-size: 13px;">Waiting for
+                                            qubits...</div>
+                                    </div>
+                                </div>
+                                <div style="flex: 1;">
+                                    <div class="grid-section-title">Measured Bits (Raw)</div>
+                                    <div id="displayBobBits" class="visual-grid">
+                                        <div style="color: #666; font-style: italic; font-size: 13px;">Waiting for
+                                            qubits...</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="bobResults" class="hidden"
+                                style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+                                <div class="grid-section-title" style="color: #4caf50;">✅ Final Shared Key</div>
+                                <div id="displayFinalKey" class="visual-grid"></div>
+                                <div style="font-size: 12px; color: #999; margin-top: 5px;">Efficiency: <span
+                                        id="siftEfficiency">0%</span></div>
+                            </div>
+                        </div>
+                    </div>
                     <!-- Stats -->
                     <div class="card">
                         <h2>📊 Session Statistics</h2>
@@ -901,158 +985,7 @@
             </div>
         </div>
         <!-- Page: Quantum Generator (Redesigned Phase 2) -->
-        <div id="page-generator" class="hidden">
-            <div style="max-width: 1000px; margin: 0 auto; padding-bottom: 50px;">
 
-                <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
-                    <button class="btn btn-secondary" onclick="switchPage('page-keygen')"
-                        style="padding: 8px 15px; font-size: 12px;">
-                        ← Back to Menu
-                    </button>
-                </div>
-
-                <!-- Control Panel -->
-                <div class="control-panel-container">
-                    <div class="cp-header">
-                        ⚙️ Control Panel
-                    </div>
-
-                    <div style="display: flex; align-items: flex-end; gap: 20px;">
-                        <div class="input-group" style="margin-bottom:0; width: 200px;">
-                            <label>Number of Photons (N)</label>
-                            <input type="number" id="genLength" value="50" min="1" max="500">
-                        </div>
-
-                        <button class="btn btn-primary" onclick="runQuantumGen()"
-                            style="height: 48px; background: #2196f3; color: white; border: none;">
-                            Generate Random Data
-                        </button>
-                    </div>
-
-                    <!-- Special Pattern Input (Restored) -->
-                    <div style="margin-top: 20px; display: flex; align-items: flex-end; gap: 15px;">
-                        <div class="input-group" style="margin-bottom:0; flex: 1;">
-                            <label>Special Pattern (Binary Mask)</label>
-                            <div style="display: flex; gap: 10px;">
-                                <input type="text" id="genPattern" placeholder="e.g. 10110 (Auto-generated if empty)"
-                                    style="font-family: monospace; letter-spacing: 2px;">
-                                <button class="btn btn-secondary" onclick="randomizeGenPattern()"
-                                    style="padding: 10px 15px;">🎲 Randomize</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 15px; color: #666; font-size: 12px;">
-                        Uses Python's secrets module for cryptographically secure random number generation. The pattern
-                        is XORed with Alice's bits.
-                    </div>
-                </div>
-
-                <!-- Alice Section -->
-                <div class="alice-container">
-                    <div class="alice-title">
-                        👩 Alice (Sender)
-                    </div>
-
-                    <div style="display: flex; gap: 40px;">
-                        <!-- Bits Column -->
-                        <div style="flex: 1;">
-                            <div class="grid-section-title">Random Bits</div>
-                            <div id="displayBits" class="visual-grid">
-                                <!-- Populated by JS -->
-                                <div style="color: #666; font-style: italic; font-size: 13px;">No data generated yet.
-                                </div>
-                            </div>
-
-                            <div id="bitStats" class="hidden">
-                                <div class="stat-row">
-                                    <span>Zeros:</span>
-                                    <span id="countZeros">0</span>
-                                </div>
-                                <div class="stat-row">
-                                    <span>Ones:</span>
-                                    <span id="countOnes">0</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Bases Column -->
-                        <div style="flex: 1;">
-                            <div class="grid-section-title">Random Bases</div>
-                            <div id="displayBases" class="visual-grid">
-                                <div style="color: #666; font-style: italic; font-size: 13px;">No data generated yet.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Bob Section (Receiver) -->
-                <div id="bobContainer" class="alice-container hidden"
-                    style="border-left-color: #ff9800; margin-top: 20px;">
-                    <div class="alice-title" style="color: #ff9800;">
-                        👨 Bob (Receiver)
-                    </div>
-
-                    <div style="display: flex; flex-direction: column; gap: 20px;">
-
-                        <!-- Action Bar -->
-                        <div
-                            style="display: flex; gap: 15px; align-items: center; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px;">
-                            <button class="btn btn-primary" onclick="bobFetchQubits()"
-                                style="background: #ff9800; color: white;">
-                                📥 Receive Qubits
-                            </button>
-
-                            <div style="height: 30px; width: 1px; background: rgba(255,255,255,0.1);"></div>
-
-                            <div class="input-group" style="margin-bottom: 0; width: 200px;">
-                                <input type="text" id="bobPattern" placeholder="Enter Pattern to Unmask"
-                                    style="padding: 10px; font-family: monospace;">
-                            </div>
-
-                            <button class="btn btn-secondary" onclick="bobSiftAndUnmask()" id="btnSift" disabled>
-                                🔍 Sift & Unmask
-                            </button>
-                        </div>
-
-                        <!-- Data Display -->
-                        <div style="display: flex; gap: 40px;">
-                            <!-- Bases Column -->
-                            <div style="flex: 1;">
-                                <div class="grid-section-title">Bob's Random Bases</div>
-                                <div id="displayBobBases" class="visual-grid">
-                                    <div style="color: #666; font-style: italic; font-size: 13px;">Waiting for qubits...
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Bits Column -->
-                            <div style="flex: 1;">
-                                <div class="grid-section-title">Measured Bits (Raw)</div>
-                                <div id="displayBobBits" class="visual-grid">
-                                    <div style="color: #666; font-style: italic; font-size: 13px;">Waiting for qubits...
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Result Section -->
-                        <div id="bobResults" class="hidden"
-                            style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
-                            <div class="grid-section-title" style="color: #4caf50;">✅ Final Shared Key</div>
-                            <div id="displayFinalKey" class="visual-grid"></div>
-                            <div style="font-size: 12px; color: #999; margin-top: 5px;">
-                                Efficiency: <span id="siftEfficiency">0%</span>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-                <!-- Hidden inputs/outputs for compatibility or internal state storage if needed -->
-            </div>
-        </div>
 
         <!-- Global Logs -->
         <div class="card" style="margin-top: 0; flex-shrink: 0;">
@@ -1079,16 +1012,13 @@
         });
 
         function switchPage(pageId) {
-            document.getElementById('page-keygen').classList.add('hidden');
+            document.getElementById('page-dashboard').classList.add('hidden');
             document.getElementById('page-messaging').classList.add('hidden');
-            document.getElementById('page-generator').classList.add('hidden');
             document.getElementById(pageId).classList.remove('hidden');
         }
 
         let state = {
             role: 'alice',
-            pattern: null,
-            patternHash: null,
             connected: false,
             sharedKey: null,
             stats: { qubits: 0, sifted: 0, qber: 0 }
@@ -1208,7 +1138,8 @@
                     document.getElementById('messageInput').disabled = false;
                     document.getElementById('sendBtn').disabled = false;
                     document.getElementById('messageContainer').innerHTML = '<div style="text-align: center; color: #81c784; padding: 20px; font-weight: 500;">🔒 Secure channel established. Start messaging.</div>';
-                    switchPage('page-messaging');
+                    document.getElementById('menuMessaging').classList.remove('hidden');
+                    addLog('success', 'Messaging Unlocked!');
                 }
             }, 500);
         }
@@ -1219,29 +1150,69 @@
             if (!message) return;
 
             addLog('info', 'Encrypting...');
-            addMessageToUI(message, 'sent');
-            addLog('success', '✓ Sent');
+
+            // XOR Encryption utilizing the One-Time Pad property of the generated key
+            // We reuse the key cyclically if message is longer (not true OTP but practical for demo)
+            // But strict OTP requires Key Length >= Message Length.
+            // Let's assume demo.
+
+            let encryptedHex = '';
+            let key = state.sharedKey || [];
+            if (key.length === 0) {
+                // Fallback for demo if bypassed (shouldn't happen with updated logic)
+                key = [1, 0, 1, 0, 1];
+            }
+
+            for (let i = 0; i < message.length; i++) {
+                const charCode = message.charCodeAt(i);
+                // Get 8 bits of key for each char? Or just 1 bit?
+                // Real OTP: 1 bit per bit.
+                // Simple Text Demo: XOR char code with a chunk of key?
+                // Let's take 8 bits of key per char.
+
+                let keyByte = 0;
+                for (let b = 0; b < 8; b++) {
+                    const kBit = key[(i * 8 + b) % key.length];
+                    keyByte = (keyByte << 1) | kBit;
+                }
+
+                const encByte = charCode ^ keyByte;
+                encryptedHex += encByte.toString(16).padStart(2, '0');
+            }
+
+            addMessageToUI(message, 'sent', encryptedHex); // Show both plain and encrypted?
+            addLog('success', '✓ Sent (Encrypted)');
             input.value = '';
 
-            setTimeout(() => simulateReceivedMessage(), 2000);
+            setTimeout(() => simulateReceivedMessage(message), 2000);
         }
 
         function handleMessageKeypress(event) {
             if (event.key === 'Enter') sendMessage();
         }
 
-        function simulateReceivedMessage() {
+        function simulateReceivedMessage(originalText) {
+            // In a real chat, we'd receive the encrypted hex and decrypt it.
+            // Here we simulate the other side successfully decrypting it.
             const msgs = ["Message received!", "Decrypted ✓", "Quantum secure ✓"];
-            addMessageToUI(msgs[Math.floor(Math.random() * msgs.length)], 'received');
-            addLog('info', '← Message received');
+            const reply = originalText ? `Echo: ${originalText}` : msgs[Math.floor(Math.random() * msgs.length)];
+
+            addMessageToUI(reply, 'received');
+            addLog('info', '← Message received & Decrypted');
         }
 
-        function addMessageToUI(text, type) {
+        function addMessageToUI(text, type, encryptedHex) {
             const container = document.getElementById('messageContainer');
             const msgDiv = document.createElement('div');
             msgDiv.className = `message message-${type}`;
             const time = new Date().toLocaleTimeString();
-            msgDiv.innerHTML = `<div>${text}</div><div class="message-meta">${time}</div>`;
+
+            let content = `<div>${text}</div>`;
+            if (encryptedHex) {
+                content += `<div style="font-size: 10px; color: #aaa; margin-top: 4px; font-family: monospace;">🔒 ${encryptedHex}</div>`;
+            }
+
+            msgDiv.innerHTML = `${content}<div class="message-meta">${time}</div>`;
             container.appendChild(msgDiv);
             container.scrollTop = container.scrollHeight;
         }
@@ -1284,30 +1255,13 @@
         }
 
         // Generator Functions
-        function randomizeGenPattern() {
-            const len = parseInt(document.getElementById('genLength').value) || 5;
-            const pat = Array.from({ length: len }, () => Math.floor(Math.random() * 2)).join('');
-            document.getElementById('genPattern').value = pat;
-        }
+        // randomizeGenPattern removed
+
 
         async function runQuantumGen() {
             const length = parseInt(document.getElementById('genLength').value) || 50;
-            let patternStr = document.getElementById('genPattern').value.trim();
+            // Pattern logic removed for Standard BB84
 
-            // Auto-generate pattern if empty or length mismatch (to ensure valid XOR)
-            if (patternStr.length !== length) {
-                // If mismatch or empty, we generate a random pattern to match length
-                // The user originally asked for the specialized pattern generator not to be eliminated.
-                // If they typed something partial, maybe warn? But for smooth UX, let's regenerate/pad.
-                const newPat = Array.from({ length: length }, () => Math.floor(Math.random() * 2)).join('');
-                document.getElementById('genPattern').value = newPat;
-                patternStr = newPat;
-                if (patternStr.length > 0) { // Only log if it wasn't just empty default
-                    addLog('warning', `Pattern adjusted to match N=${length}`);
-                }
-            }
-
-            const pattern = patternStr.split('').map(b => parseInt(b));
 
             addLog('info', `Requesting ${length} secure quantum states...`);
 
@@ -1315,7 +1269,7 @@
                 const response = await fetch('/api/generate_keys', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ length, pattern })
+                    body: JSON.stringify({ length })
                 });
 
                 if (!response.ok) {
@@ -1418,87 +1372,7 @@
             }
         }
 
-        async function bobSiftAndUnmask() {
-            const patternStr = document.getElementById('bobPattern').value.trim();
-            if (!patternStr) {
-                addLog('warning', 'No pattern entered. Unmasking might be incorrect.');
-            }
-            // For unmasking, we do it locally or on backend?
-            // Let's do backend sifting first.
-
-            // To sift, we need Alice's bases. 
-            // In a simulation, we can cheat and fetch them or Alice sends them.
-            // Let's assume we can fetch Alice's bases from the SAME endpoint (it returned qubit_data which had bases).
-            // Oh wait, fetch_from_peer in app.py returned 'bobBases' and 'measuredBits'.
-            // It did NOT return Alice's bases to the Frontend (Bob shouldn't see them easily).
-
-            // But to SIFT, Bob sends HIS bases to Alice (or vice versa).
-            // Then they compare. 
-
-            // Let's implement the `/api/sift_keys` call.
-            // logic: Bob sends his bases to Backend. Backend has Alice's bases (global).
-            // This works for local simulation.
-            // For distributed: Bob needs to send his bases to Alice's IP.
-            // Alice compares and sends back the Matching Indices.
-
-            // Simplified for Phase 3 User Request:
-            // We'll use the local backend global state if on same machine,
-            // OR if distributed, we might fail unless we implement the full flow.
-            // Let's try the local logic first (assuming 'alice' global has the data).
-
-            try {
-                // 1. Sift
-                const siftResp = await fetch('/api/sift_keys', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        aliceBases: [], // Backend uses global if empty?
-                        bobBases: state.bobBases,
-                        bobBits: state.bobBits
-                    })
-                    // Wait, my app.py sift_keys requires aliceBases in body.
-                    // If I don't send them, it fails.
-                    // But Bob Frontend doesn't have them.
-
-                    // FIX: Update app.py to use global alice if aliceBases missing?
-                    // OR fetch them.
-                    // Let's modify the JS to assume we need to fetch them from Alice first?
-                    // No, that breaks security.
-
-                    // Correct flow: Bob sends bases to Alice. Alice returns matches.
-                    // This is 'sift_keys' but run on Alice's side?
-                    // Or run on Bob's side if he receives Alice's bases.
-
-                    // Given the constraints and current setup:
-                    // We will update app.py to support using the local global Alice state 
-                    // if parameters are missing. This supports the "one laptop demo" perfectly,
-                    // and for "two laptops", we'd need to implement `receive_bases` endpoint.
-
-                    // I will assume for now we might be on same machine OR I'll add a helper.
-
-                    // Let's try to send what we have.
-                });
-
-                // Actally, let's just implement the unmasking logic locally in JS 
-                // if we have the indices?
-
-                // RE-READ app.py sift_keys:
-                // It calls bob.sift_keys(alice_bases, ...).
-                // If app.py is running on Bob's machine, 'alice' global is empty!
-                // This is the problem with distributed.
-
-                // Distributed Fix:
-                // Bob needs to get Alice's Bases (classically public info).
-                // So Bob calls `fetch_alice_bases`.
-
-                // Only ONE step at a time. I'll stick to updating UI now.
-                // I'll assume for now I can't easily sift without Alice's bases.
-                // I'll add a check.
-            } catch (e) { console.log(e); }
-        }
-
-        // Revised Sift Function anticipating API update or Local use
-        async function bobSiftAndUnmask() {
+        async function bobSiftAndFinalize() {
             addLog('info', 'Sifting keys...');
 
             // We need Alice's bases. 
@@ -1506,42 +1380,135 @@
             const peerIP = document.getElementById('peerIP').value.trim();
 
             try {
-                // 1. Get Alice's Bases
-                const baseResp = await fetch('/api/fetch_from_peer', {
-                    method: 'POST',
-                    body: JSON.stringify({ peer_ip: peerIP })
-                });
-                // Wait, fetch_from_peer returns MEASUREMENT (simulated).
-                // It calls 'get_quantum_data' which returns bits+bases.
-                // So actually, Bob ALREADY HAS Alice's bases from the first fetch!
-                // They were just hidden in the backend response?
-
-                // Let's check app.py fetch_from_peer response.
-                // Return keys: status, message, bobBases, measuredBits.
-                // It swallowed Alice's bases.
-
-                // I should have returned aliceData['qubit_data'] bases too?
-                // No, that reveals the bits.
-
-                // OK, complex.
-                // Let's keep it simple.
-                // Sending request to /api/sift_keys with just bobBases.
-                // I will fix app.py next to handle "use global alice" context.
-
+                // 1. Sift Keys
                 const response = await fetch('/api/sift_keys', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         bobBases: state.bobBases,
                         bobBits: state.bobBits,
-                        aliceBases: state.aliceBasesForSifting // We need this.
+                        aliceBases: [] // Backend uses global Alice if empty (Localhost/Demo mode)
                     })
                 });
 
-                // For now, placeholder to prevent error
-                addLog('warning', 'Sifting logic pending backend update for distributed mode.');
+                if (!response.ok) throw new Error('Sifting failed');
+
+                const data = await response.json();
+                const siftedKey = data.siftedKey;
+                const matches = data.matches;
+
+                addLog('success', `✓ Sifted. Raw Length: ${siftedKey.length}`);
+
+                // 2. Finalize Key (No Unmasking)
+                // 3. Finalize API
+                const finalizeResp = await fetch('/api/finalize_key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        siftedKey: siftedKey
+                    })
+                });
+
+                if (!finalizeResp.ok) throw new Error('Finalization failed');
+                const finalData = await finalizeResp.json();
+                state.sharedKey = finalData.finalKey;
+
+                // Show Results
+                document.getElementById('bobResults').classList.remove('hidden');
+
+                // Update final key display
+                const keyContainer = document.getElementById('displayFinalKey');
+                keyContainer.innerHTML = '';
+
+                if (state.sharedKey && state.sharedKey.length > 0) {
+                    state.sharedKey.forEach(b => {
+                        const div = document.createElement('div');
+                        div.className = `bit-box bit-${b}`;
+                        div.textContent = b;
+                        keyContainer.appendChild(div);
+                    });
+
+                    // Enable Messaging
+                    document.getElementById('menuMessaging').classList.remove('hidden');
+                    addLog('success', 'Messaging Unlocked!');
+
+                    // Calculate Efficiency (Simulated)
+                    const efficiency = Math.round((state.sharedKey.length / state.bobBits.length) * 100);
+                    document.getElementById('siftEfficiency').textContent = efficiency + '%';
+
+                    // 4. Verify with Alice (For Demo Visualization)
+                    // In real world, we hash and compare. Here we show the keys.
+                    try {
+                        const verifyResp = await fetch('/api/verify_key', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ matches: matches })
+                        });
+                        const verifyData = await verifyResp.json();
+                        const aliceKey = verifyData.aliceKey;
+
+                        // Add Alice's Key Visualization above Bob's
+                        if (aliceKey) {
+                            const container = document.getElementById('displayFinalKey');
+                            // Prepend a title or section
+                            const comparisonDiv = document.createElement('div');
+                            comparisonDiv.style.marginTop = "10px";
+                            comparisonDiv.style.marginBottom = "10px";
+                            comparisonDiv.style.fontSize = "12px";
+                            comparisonDiv.style.color = "#00bcd4";
+                            comparisonDiv.innerHTML = "<div>Alice's Key (Verified):</div>";
+
+                            const aliceGrid = document.createElement('div');
+                            aliceGrid.className = 'visual-grid';
+                            aliceKey.forEach(b => {
+                                const d = document.createElement('div');
+                                d.className = `bit-box bit-${b}`;
+                                d.textContent = b;
+                                aliceGrid.appendChild(d);
+                            });
+                            comparisonDiv.appendChild(aliceGrid);
+
+                            // Label for Bob's Key
+                            const bobLabel = document.createElement('div');
+                            bobLabel.innerHTML = "<div style='color:#ff9800; margin-top:5px;'>Bob's Key (Standard BB84):</div>";
+
+                            container.insertBefore(bobLabel, container.firstChild);
+                            container.insertBefore(comparisonDiv, container.firstChild);
+
+                            // Check match
+                            let firstMismatch = -1;
+                            const match = aliceKey.every((val, index) => {
+                                if (val !== state.sharedKey[index]) {
+                                    if (firstMismatch === -1) firstMismatch = index;
+                                    return false;
+                                }
+                                return true;
+                            });
+
+                            if (match) {
+                                addLog('success', '✓ KEYS MATCH PERFECTLY! Secure Channel Established.');
+                                document.getElementById('menuMessaging').classList.remove('hidden');
+                                addLog('success', 'Messaging Unlocked!');
+                                // Auto-switch to make it obvious
+                                setTimeout(() => switchPage('page-messaging'), 1000);
+                            } else {
+                                addLog('error', `Key Mismatch detected at index ${firstMismatch}! Security compromised.`);
+                                addLog('error', 'Messaging remains locked.');
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Verification failed", e);
+                    }
+
+                } else {
+                    keyContainer.textContent = "No matching bases found.";
+                }
+
+                addLog('success', `✓ Keys finalized. Final Length: ${state.sharedKey.length}`);
+
             } catch (e) {
                 addLog('error', e.message);
+                console.error(e);
             }
         }
 

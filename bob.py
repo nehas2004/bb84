@@ -74,46 +74,13 @@ class Bob(Node):
         self.log(f"Sifting complete. Kept {len(sifted_key)} bits.")
         return sifted_key, matching_indices
 
-    def unmask_key(self, special_pattern):
+    def finalize_key(self, sifted_key):
         """
-        Applies the special pattern to the sifted key (if applicable in this protocol variant).
-        Note: logic depends on how the pattern is applied. 
-        If Alice XORed Pattern with RandomBits to get EncodedBits, 
-        and Bob measures EncodedBits to get MeasuredBits (which roughly equals EncodedBits),
-        then Bob has (RandomBits ^ Pattern).
-        To get RandomBits, Bob needs: (RandomBits ^ Pattern) ^ Pattern = RandomBits.
-        
-        So Bob performs XOR with the pattern.
+        In standard BB84, the sifted key is the final key (absent error correction/privacy amp).
+        We keep this method to verify the flow.
         """
-        self.log(f"Unmasking key using pattern: {special_pattern}")
-        
-        # Pattern length handling needs to be robust.
-        # Assuming pattern repeats or is matched to key length.
-        # Here we assume pattern list corresponds to sifted key bits? 
-        # OR is the pattern applied to the RAW key?
-        
-        # Protocol Clarification from Alice code: 
-        # masked_bits = raw_bits ^ pattern
-        # encoded_qubits = encode(masked_bits)
-        # Bob measures -> gets masked_bits (ideally)
-        # So Bob has `masked_bits`. 
-        # Sifting reduces this to `sifted_masked_bits`.
-        # To get `sifted_raw_key`, Bob needs `sifted_pattern`.
-        
-        # This implies Bob must also 'sift' the pattern if the pattern was applied bit-wise to the raw key.
-        # We need the indices of the sifted key to know which pattern bits to use.
-        
-        # However, looking at the previous user prompt/context, the "Special Pattern Generator" was to generate masked keys.
-        # If the pattern is "10110", it is applied to the first 5 bits.
-        
-        # Let's simple-implement for now: Unmasked = Key ^ Pattern
-        unmasked = []
-        for i, bit in enumerate(self.sifted_key):
-             # Use modulo for pattern reuse if key is longer
-            pat_bit = special_pattern[i % len(special_pattern)]
-            unmasked.append(bit ^ pat_bit)
-            
-        return unmasked
+        self.log(f"Finalizing key: {sifted_key}")
+        return sifted_key
 
 if __name__ == "__main__":
     # Smoke test

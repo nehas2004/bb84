@@ -1,17 +1,17 @@
 import secrets
 from qiskit import QuantumCircuit
 
-def generate_masked_key(length, special_pattern):
+def generate_masked_key(length):
     # 1. Generate cryptographically secure random bits and bases
     # using secrets module
     alice_bits = [secrets.choice([0, 1]) for _ in range(length)]
     alice_bases = [secrets.choice([0, 1]) for _ in range(length)] # 0=Rectilinear, 1=Diagonal
     
-    # 2. Apply the Special Pattern Mask (XOR)
-    # Ensure special_pattern is the same length as the key
-    # We assume distinct implementation elsewhere handles length checks, 
-    # but here we zip to be safe.
-    masked_bits = [b ^ p for b, p in zip(alice_bits, special_pattern)]
+
+    # 2. No Special Pattern Mask (Standard BB84)
+    # The "masked" bits are just the Alice bits in this standard version
+    masked_bits = alice_bits
+
     
     encoded_qubits = []
     
@@ -34,7 +34,6 @@ def generate_masked_key(length, special_pattern):
 
 # Example:
 if __name__ == "__main__":
-    pattern = [1, 0, 1, 1, 0] 
-    raw_bits, bases, qubits = generate_masked_key(5, pattern)
+    raw_bits, bases, qubits = generate_masked_key(5)
     print(f"Alice's Secret Bits: {raw_bits}")
     print("Backend check passed!")

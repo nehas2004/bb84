@@ -5,6 +5,7 @@ from bob import Bob
 import numpy as np
 import os
 import socket
+from qiskit import QuantumCircuit
 
 # Set template_folder to current directory to find ui.html
 app = Flask(__name__, template_folder=os.getcwd())
@@ -38,31 +39,29 @@ def get_config():
 def generate_keys():
     data = request.json
     length = int(data.get('length', 5))
-    pattern = data.get('pattern', []) # List of ints
     
-    if len(pattern) != length:
-        return jsonify({"error": "Pattern length mismatch"}), 400
+    # Standard BB84 - No pattern check logic needed
 
-    # Alice generates keys
-    # pattern needs to be list or array, Alice handles it
-    alice.prepare_quantum_states(length, pattern)
+
+    # Alice generates keys (Standard BB84)
+    alice.prepare_quantum_states(length)
     
     # Get the raw data from Alice
     raw_bits = alice.raw_bits
     bases = alice.bases
     
-    # Derive masked bits and symbols for UI
-    # masked_bits = raw_bits ^ pattern
-    masked_bits = [r ^ p for r, p in zip(raw_bits, pattern)]
+    # With pattern removed, masked_bits ARE the raw_bits (Verification view)
+    # We display them as "Alice's Secret Bits"
+    # masked_bits = raw_bits 
     
     symbols = []
     for i in range(length):
         if bases[i] == 0: # Rectilinear
              # 0 -> |0>, 1 -> |1>
-             symbols.append("|0⟩" if masked_bits[i] == 0 else "|1⟩")
+             symbols.append("|0⟩" if raw_bits[i] == 0 else "|1⟩")
         else: # Diagonal
              # 0 -> |+>, 1 -> |- >
-             symbols.append("|+⟩" if masked_bits[i] == 0 else "|-⟩")
+             symbols.append("|+⟩" if raw_bits[i] == 0 else "|-⟩")
              
     print(f"[Backend] Generated {length} qubits. Symbols: {symbols}")
     
@@ -159,14 +158,53 @@ def sift_keys():
     bob_bases = data.get('bobBases')
     bob_bits = data.get('bobBits')
     
-    if not (alice_bases and bob_bases and bob_bits):
-         return jsonify({"error": "Missing data for sifting"}), 400
+    if not alice_bases:
+        # Fallback to global Alice for local simulation
+        if alice.bases:
+             alice_bases = alice.bases
+        else:
+             return jsonify({"error": "Missing Alice bases and no local state"}), 400
+
+    if not (bob_bases and bob_bits):
+         return jsonify({"error": "Missing Bob data for sifting"}), 400
          
     sifted_key, matches = bob.sift_keys(alice_bases, bob_bases, bob_bits)
     
     return jsonify({
         "siftedKey": sifted_key,
         "matches": matches
+    })
+
+@app.route('/api/verify_key', methods=['POST'])
+def verify_key():
+    data = request.json
+    matches = data.get('matches')
+    
+    if not matches:
+        return jsonify({"error": "Missing matches"}), 400
+        
+    if not alice.raw_bits:
+        return jsonify({"error": "Alice has no bits"}), 400
+        
+    # Alice's key is the raw bits at the matching indices
+    alice_key = [alice.raw_bits[i] for i in matches]
+    
+    return jsonify({
+        "aliceKey": alice_key
+    })
+
+@app.route('/api/finalize_key', methods=['POST'])
+def finalize_key():
+    data = request.json
+    sifted_key = data.get('siftedKey')
+    
+    if not sifted_key:
+        return jsonify({"error": "Missing data for key finalization"}), 400
+        
+    final_key = bob.finalize_key(sifted_key)
+    
+    return jsonify({
+        "finalKey": final_key
     })
 
 @app.route('/api/get_quantum_data', methods=['GET'])
