@@ -778,8 +778,13 @@
 
                     <div id="connectionSetup" class="hidden" style="margin-top: 15px;">
                         <div class="input-group">
-                            <label>Peer IP Address</label>
-                            <input type="text" id="peerIP" placeholder="192.168.1.100">
+                            <label>Your Local IP (Share with Peer)</label>
+                            <input type="text" id="myIP" value="Fetching..." readonly
+                                style="color: #4caf50; font-weight: bold;">
+                        </div>
+                        <div class="input-group">
+                            <label>Peer IP Address (Target)</label>
+                            <input type="text" id="peerIP" placeholder="192.168.x.x">
                         </div>
                         <button class="btn btn-primary" onclick="establishConnection()" id="connectBtn" disabled
                             style="width: 100%;">
@@ -1059,6 +1064,20 @@
     </div>
 
     <script>
+        // Init: Fetch Local IP
+        window.addEventListener('load', async () => {
+            try {
+                const res = await fetch('/api/config');
+                const data = await res.json();
+                if (data.local_ip) {
+                    document.getElementById('myIP').value = data.local_ip;
+                    addLog('info', `Your IP: ${data.local_ip}`);
+                }
+            } catch (e) {
+                console.error('Failed to load config', e);
+            }
+        });
+
         function switchPage(pageId) {
             document.getElementById('page-keygen').classList.add('hidden');
             document.getElementById('page-messaging').classList.add('hidden');
@@ -1374,8 +1393,11 @@
                     body: JSON.stringify({ peer_ip: peerIP })
                 });
 
-                if (!response.ok) throw new Error("Fetch failed");
                 const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || `Server Error: ${response.status}`);
+                }
 
                 if (data.error) throw new Error(data.error);
 

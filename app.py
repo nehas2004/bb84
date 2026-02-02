@@ -4,6 +4,7 @@ from alice import Alice
 from bob import Bob
 import numpy as np
 import os
+import socket
 
 # Set template_folder to current directory to find ui.html
 app = Flask(__name__, template_folder=os.getcwd())
@@ -14,6 +15,24 @@ bob = Bob()
 @app.route('/')
 def index():
     return render_template('ui.html')
+
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
+@app.route('/api/config', methods=['GET'])
+def get_config():
+    return jsonify({
+        "local_ip": get_local_ip()
+    })
 
 @app.route('/api/generate_keys', methods=['POST'])
 def generate_keys():
