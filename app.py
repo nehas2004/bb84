@@ -1,5 +1,6 @@
 
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 from alice import Alice
 from bob import Bob
 import numpy as np
@@ -9,13 +10,14 @@ from qiskit import QuantumCircuit
 
 # Set template_folder to current directory to find ui.html
 app = Flask(__name__, template_folder=os.getcwd())
+CORS(app) # Enable CORS for all routes (Dev mode)
 
 alice = Alice()
 bob = Bob()
 
 @app.route('/')
 def index():
-    return render_template('ui.html')
+    return jsonify({"status": "Quantum Key Distribution Backend Running", "frontend": "http://localhost:5173"}), 200
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -193,6 +195,71 @@ def verify_key():
         "aliceKey": alice_key
     })
 
+@app.route('/api/sample_key', methods=['POST'])
+def sample_key():
+    data = request.json
+    sifted_key = data.get('siftedKey')
+    
+    if not sifted_key:
+        return jsonify({"error": "Missing sifted key"}), 400
+        
+    indices, bits, remaining = bob.sample_for_verification(sifted_key)
+    
+    return jsonify({
+        "sampleIndices": indices,
+        "sampleBits": bits,
+        "remainingKey": remaining
+    })
+
+@app.route('/api/compare_sample', methods=['POST'])
+def compare_sample():
+    data = request.json
+    sample_indices = data.get('sampleIndices')
+    bob_sample_bits = data.get('bobSampleBits')
+    
+    if not (sample_indices and bob_sample_bits):
+        return jsonify({"error": "Missing sample data"}), 400
+        
+    # Alice compares with her raw bits
+    # But wait, Alice's SIFTED bits might be at different indices than Raw bits?
+    # NO. Sifted key is a subset. 
+    # Bob has sifted key. Sample indices are indices into the SIFTED key, not Raw.
+    # We need Alice's SIFTED key to compare correctly.
+    
+    # We need to reconstruction Alice's sifted key first.
+    # In `sift_keys` endpoint, we returned `matches` (indices in raw key).
+    # We can use that.
+    
+    # Ideally, client sends 'matches' too, or we store them.
+    # Let's ask client to send 'originalMatches' (indices in raw key).
+    
+    matches = data.get('originalMatches') # The list of indices where bases matched
+    if not matches:
+         return jsonify({"error": "Missing original match indices"}), 400
+         
+    # Alice's sifted key
+    alice_sifted = [alice.raw_bits[i] for i in matches]
+    
+    # Now get the specific sample bits from Alice's sifted key
+    alice_sample_bits = [alice_sifted[i] for i in sample_indices]
+    
+    # Compare
+    error_count = 0
+    total = len(sample_indices)
+    
+    for a, b in zip(alice_sample_bits, bob_sample_bits):
+        if a != b:
+            error_count += 1
+            
+    qber = (error_count / total) * 100 if total > 0 else 0
+    
+    return jsonify({
+        "aliceSampleBits": alice_sample_bits,
+        "errorCount": error_count,
+        "qber": qber,
+        "verified": qber == 0 # Simplified check
+    })
+
 @app.route('/api/finalize_key', methods=['POST'])
 def finalize_key():
     data = request.json
@@ -281,6 +348,86 @@ def fetch_from_peer():
         
     except Exception as e:
         print(f"Error fetching from peer: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/public/bases', methods=['GET'])
+def get_public_bases():
+    """Alice exposes ONLY her bases (Classical Channel)."""
+    if not alice.bases:
+         return jsonify({"error": "No bases available"}), 404
+    return jsonify({"bases": alice.bases})
+
+@app.route('/api/fetch_peer_bases', methods=['POST'])
+def fetch_peer_bases():
+    """Bob fetches Alice's bases via the classical channel."""
+    import requests
+    data = request.json
+    peer_ip = data.get('peer_ip')
+
+    if not peer_ip:
+        return jsonify({"error": "Peer IP required"}), 400
+
+    try:
+        # Assuming default port 5000
+        target_url = f"http://{peer_ip}:5000/api/public/bases"
+        print(f"[Bob] Fetching bases from {target_url}...")
+        resp = requests.get(target_url, timeout=5)
+
+        if resp.status_code != 200:
+             return jsonify({"error": f"Failed to fetch bases from Alice: {resp.text}"}), 500
+
+        data = resp.json()
+        return jsonify({"aliceBases": data.get('bases')})
+
+    except Exception as e:
+        print(f"Error fetching peer bases: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/verify_peer_sample', methods=['POST'])
+def verify_peer_sample():
+    """Bob calculates sample locally, then sends it to Alice for comparison."""
+    import requests
+    data = request.json
+    peer_ip = data.get('peer_ip')
+    sifted_key = data.get('sifted_key')
+    original_matches = data.get('original_matches')
+    
+    if not (peer_ip and sifted_key and original_matches):
+         return jsonify({"error": "Missing parameters for network verification"}), 400
+         
+    # 1. Bob samples his key locally
+    indices, bits, remaining = bob.sample_for_verification(sifted_key)
+    
+    # 2. Bob sends sample to Alice
+    try:
+        target_url = f"http://{peer_ip}:5000/api/compare_sample"
+        payload = {
+            "sampleIndices": indices,
+            "bobSampleBits": bits,
+            "originalMatches": original_matches
+        }
+        print(f"[Bob] Sending sample to Alice for verification at {target_url}...")
+        
+        resp = requests.post(target_url, json=payload, timeout=5)
+        
+        if resp.status_code != 200:
+             return jsonify({"error": f"Verification failed at Alice: {resp.text}"}), 500
+             
+        # Alice returns the QBER result
+        alice_res = resp.json()
+        
+        # Combine local Bob info (remaining key) with Alice' result
+        return jsonify({
+            "sampleIndices": indices,
+            "sampleBits": bits,
+            "remainingKey": remaining,
+            "errorCount": alice_res.get('errorCount'),
+            "qber": alice_res.get('qber'),
+            "verified": alice_res.get('verified')
+        })
+        
+    except Exception as e:
+        print(f"Error during network verification: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':

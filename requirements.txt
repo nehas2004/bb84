@@ -3,3 +3,4 @@ numpy
 qiskit
 qiskit-aer
 requests
+flask-cors

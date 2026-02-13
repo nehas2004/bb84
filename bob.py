@@ -76,11 +76,58 @@ class Bob(Node):
 
     def finalize_key(self, sifted_key):
         """
-        In standard BB84, the sifted key is the final key (absent error correction/privacy amp).
-        We keep this method to verify the flow.
+        In standard BB84, this would clean up memory or persist the key.
+        Here it acts as a pass through for state management.
         """
-        self.log(f"Finalizing key: {sifted_key}")
+        self.log(f"Key finalized. Length: {len(sifted_key)}")
         return sifted_key
+
+    def sample_for_verification(self, sifted_key, percentage=0.3):
+        """
+        Selects a random sample of the sifted key for public comparison.
+        Returns:
+            - sample_indices: list of indices in the sifted key to reveal
+            - sample_bits: the actual bits at those indices
+            - remaining_key: the safe key with those bits removed
+        """
+        total_len = len(sifted_key)
+        # Ensure we check at least 5 bits if possible, otherwise 50%
+        if total_len < 10:
+             sample_size = max(1, total_len // 2)
+        else:
+             sample_size = max(5, int(total_len * percentage))
+             
+        self.log(f"Sampling {sample_size} bits out of {total_len} for verification.")
+        
+        # Randomly select indices
+        # We use a set to avoid duplicates then convert to sorted list
+        # Actually secrets doesn't do distinct non-replacement easily for list indices, 
+        # so we shuffle the index list.
+        all_indices = list(range(total_len))
+        # We can implement a Fisher-Yates shuffle or similar using secrets, 
+        # but for simulation random.sample is acceptable or just manual.
+        # Let's use secrets safely.
+        
+        # Simple reservoir or shuffle
+        # Since we need to split the key, let's just shuffle the indices
+        # and take the first k.
+        
+        # Note: 'secrets' module doesn't have a shuffle. 'random' does.
+        # For BB84 simulation, standard PRNG shuffle for indices is fine 
+        # as long as the key generation itself was secure.
+        import random
+        random.shuffle(all_indices)
+        
+        sample_indices = sorted(all_indices[:sample_size])
+        
+        sample_bits = [sifted_key[i] for i in sample_indices]
+        
+        # Create the remaining secure key
+        # Using a set for O(1) lookups
+        sample_set = set(sample_indices)
+        remaining_key = [sifted_key[i] for i in range(total_len) if i not in sample_set]
+        
+        return sample_indices, sample_bits, remaining_key
 
 if __name__ == "__main__":
     # Smoke test
