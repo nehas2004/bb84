@@ -17,7 +17,7 @@ bob = Bob()
 
 @app.route('/')
 def index():
-    return jsonify({"status": "Quantum Key Distribution Backend Running", "frontend": "http://localhost:5173"}), 200
+    return render_template('backend_landing.html')
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -253,12 +253,28 @@ def compare_sample():
             
     qber = (error_count / total) * 100 if total > 0 else 0
     
+    # Logic continues below to store key if verified
+
+    # If verified (and low error), we can store the final key for Alice
+    if qber == 0: # Strict check for this demo
+        # Alice's remaining key = sifted key with sample indices removed.
+        # Note: sample_indices are indices INTO the sifted key.
+        alice_remaining = [alice_sifted[i] for i in range(len(alice_sifted)) if i not in sample_indices]
+        alice.shared_key = alice_remaining
+        print(f"[Alice] Key established: {len(alice.shared_key)} bits.")
+
     return jsonify({
         "aliceSampleBits": alice_sample_bits,
         "errorCount": error_count,
         "qber": qber,
-        "verified": qber == 0 # Simplified check
+        "verified": qber == 0
     })
+
+@app.route('/api/alice/key_status', methods=['GET'])
+def get_alice_key():
+    if alice.shared_key:
+        return jsonify({"sharedKey": alice.shared_key})
+    return jsonify({"sharedKey": None})
 
 @app.route('/api/finalize_key', methods=['POST'])
 def finalize_key():

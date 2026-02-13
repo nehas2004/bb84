@@ -6,9 +6,11 @@ from node import Node
 class Alice(Node):
     def __init__(self):
         super().__init__("Alice")
+        print("[DEBUG] Alice Initialized with shared_key field")
         self.raw_bits = None
         self.bases = None
         self.encoded_qubits = None
+        self.shared_key = None
 
     def prepare_quantum_states(self, length):
         self.log(f"Generating {length} bits (Standard BB84)...")

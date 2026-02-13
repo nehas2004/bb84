@@ -10,11 +10,33 @@ const AlicePanel: React.FC = () => {
         addLog,
         aliceBits,
         aliceBases,
-        setAliceState
+        setAliceState,
+        sharedKey,
+        setSharedKey
     } = useProject();
 
     const [length, setLength] = useState(10);
     const [loading, setLoading] = useState(false);
+
+    // Poll for key status if we have generated bits but no key yet
+    React.useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (aliceBits.length > 0 && sharedKey.length === 0) {
+            interval = setInterval(async () => {
+                try {
+                    const res = await axios.get('/api/alice/key_status');
+                    if (res.data.sharedKey) {
+                        setSharedKey(res.data.sharedKey);
+                        addLog('success', `Key Established with Bob! Length: ${res.data.sharedKey.length}`);
+                        clearInterval(interval);
+                    }
+                } catch (e) {
+                    // ignore errors while polling
+                }
+            }, 2000);
+        }
+        return () => clearInterval(interval);
+    }, [aliceBits, sharedKey, setSharedKey, addLog]);
 
     const handleGenerate = async () => {
         setLoading(true);
@@ -90,6 +112,31 @@ const AlicePanel: React.FC = () => {
                         ))}
                     </div>
                 </div>
+            )}
+
+            {sharedKey.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 p-4 rounded-lg bg-green-900/20 border border-green-500/30"
+                >
+                    <div style={{ color: '#4caf50', fontWeight: 'bold', marginBottom: '10px' }}>
+                        ✅ Secure Shared Key Established
+                    </div>
+                    <div className="visual-grid">
+                        {sharedKey.map((b, i) => (
+                            <motion.div
+                                key={i}
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ delay: i * 0.02 }}
+                                className={`box bit-${b}`}
+                            >
+                                {b}
+                            </motion.div>
+                        ))}
+                    </div>
+                </motion.div>
             )}
         </div>
     );
