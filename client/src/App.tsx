@@ -8,6 +8,7 @@ import LogTerminal from './components/LogTerminal';
 import AlicePanel from './components/AlicePanel';
 import BobPanel from './components/BobPanel';
 import Messaging from './components/Messaging';
+import NoisePanel from './components/NoisePanel';
 
 const Content: React.FC = () => {
   const { role, setRole, sharedKey } = useProject();
@@ -22,19 +23,18 @@ const Content: React.FC = () => {
   }, [location, setRole]);
 
   return (
-    <div className="relative min-h-screen text-white">
+    <div style={{ minHeight: '100vh', color: 'white' }}>
       <QuantumOrb />
 
-      <div className="container mx-auto px-4 py-8 relative z-10" style={{ maxWidth: '1200px' }}>
+      <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '24px 20px', position: 'relative', zIndex: 10 }}>
         <Header />
 
-        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '25px' }}>
+        <div className="app-layout">
 
           {/* Sidebar */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="sidebar-col">
             <ConnectionPanel />
-
-            {/* Role Selector */}
+            <NoisePanel />
             <div className="card">
               <h2>🎭 Mode Selection</h2>
               <div style={{ display: 'flex', gap: '10px' }}>
@@ -54,12 +54,11 @@ const Content: React.FC = () => {
                 </Link>
               </div>
             </div>
-
             <LogTerminal />
           </div>
 
           {/* Main Content */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="main-col">
             <Routes>
               <Route path="/" element={<AlicePanel />} />
               <Route path="/alice" element={<AlicePanel />} />

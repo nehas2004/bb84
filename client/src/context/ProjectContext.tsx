@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { defaultConfig } from '../components/NoisePanel';
+import type { NoiseConfig } from '../components/NoisePanel';
 
 interface LogEntry {
     type: 'info' | 'success' | 'warning' | 'error';
@@ -33,6 +35,10 @@ interface ProjectContextType {
     setSharedKey: (key: number[]) => void;
 
     resetState: () => void;
+
+    // Noise
+    noiseConfig: NoiseConfig;
+    setNoiseConfig: (cfg: NoiseConfig) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -57,6 +63,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const [bobBits, setBobBits] = useState<number[]>([]);
 
     const [sharedKey, setSharedKey] = useState<number[]>([]);
+
+    // Noise configuration — mirrors backend global noise_config
+    const [noiseConfig, setNoiseConfig] = useState<NoiseConfig>(defaultConfig);
 
     useEffect(() => {
         // Initial Config Fetch
@@ -104,7 +113,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         aliceBits, aliceBases, setAliceState,
         bobBases, bobBits, setBobState,
         sharedKey, setSharedKey,
-        resetState
+        resetState,
+        noiseConfig, setNoiseConfig,
     };
 
     return (
