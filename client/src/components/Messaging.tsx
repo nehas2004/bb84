@@ -4,44 +4,86 @@ import axios from 'axios';
 import { Send, Lock, Unlock } from 'lucide-react';
 
 const Messaging: React.FC = () => {
-    const { sharedKey, addLog } = useProject();
+    const { sharedKey, addLog, role, peerIP } = useProject();
     const [message, setMessage] = useState('');
     const [encrypted, setEncrypted] = useState<string>('');
     const [decrypted, setDecrypted] = useState<string>('');
+    
+    // Polling state for Bob
+    const [isPolling, setIsPolling] = useState(false);
 
     const handleSend = async () => {
         if (!message) return;
 
         try {
-            // Encrypt locally or via backend? Protocol usually uses OTP with key.
-            // We'll use the backend /api/encrypt for simulation consistency.
-
             // Convert shared key array to string 
             const keyStr = sharedKey.join('');
 
-            // Encrypt
+            // Encrypt and store on backend outbox
             const encRes = await axios.post('/api/encrypt_message', {
                 message: message,
-                key: keyStr // Send key to backend? Usually key is pre-shared. 
-                // But backend is stateless regarding specific key instance unless session based.
-                // We'll send it for this demo.
+                key: keyStr 
             });
 
             setEncrypted(encRes.data.encrypted_hex);
-            addLog('info', `Message encrypted: ${encRes.data.encrypted_hex.substring(0, 10)}...`);
+            addLog('info', `Message encrypted & stored: ${encRes.data.encrypted_hex.substring(0, 10)}...`);
 
-            // Decrypt (Bob side simulation)
+            // We NO LONGER instantly decrypt it. We wait for Bob.
+            setMessage('');
+        } catch (err: any) {
+            addLog('error', err.response?.data?.error || err.message);
+        }
+    };
+
+    const handleReceive = async () => {
+        setIsPolling(true);
+        try {
+            // 1. Fetch encrypted message from Alice
+            let targetEndpoint = '/api/get_message'; // local fallback
+            let payload = {};
+            
+            if (peerIP) {
+                targetEndpoint = '/api/fetch_message_from_peer';
+                payload = { peer_ip: peerIP };
+            }
+
+            const fetchRes = await axios.post(targetEndpoint, payload);
+            
+            // If the endpoint was GET /api/get_message (local test) axios expects different sig but we used POST above for peer. 
+            // Wait, local fallback should just be GET /api/get_message
+            let msgs = [];
+            if (peerIP) {
+                msgs = fetchRes.data.messages || [];
+            } else {
+                const getRes = await axios.get('/api/get_message');
+                msgs = getRes.data.messages || [];
+            }
+
+            if (msgs.length === 0) {
+                addLog('warning', `No messages found in outbox.`);
+                setIsPolling(false);
+                return;
+            }
+
+            // Get the latest message
+            const latestCiphertext = msgs[msgs.length - 1];
+            setEncrypted(latestCiphertext);
+            addLog('info', `Fetched encrypted message: ${latestCiphertext.substring(0, 10)}...`);
+
+            // 2. Decrypt it using Bob's identical key
+            const keyStr = sharedKey.join('');
             const decRes = await axios.post('/api/decrypt_message', {
-                encrypted_hex: encRes.data.encrypted_hex,
+                encrypted_hex: latestCiphertext,
                 key: keyStr
             });
 
             setDecrypted(decRes.data.decrypted_message);
-            addLog('success', `Message received & decrypted: ${decRes.data.decrypted_message}`);
+            addLog('success', `Message received & decrypted securely!`);
 
         } catch (err: any) {
             addLog('error', err.response?.data?.error || err.message);
         }
+        setIsPolling(false);
     };
 
     if (sharedKey.length === 0) return null;
@@ -49,21 +91,36 @@ const Messaging: React.FC = () => {
     return (
         <div className="card" style={{ borderLeft: '4px solid #9c27b0' }}>
             <div className="section-title" style={{ color: '#e1bee7' }}>
-                <Lock /> Secure Messaging
+                <Lock /> Secure Messaging Channel
             </div>
 
-            <div className="input-group">
-                <textarea
-                    rows={3}
-                    placeholder="Enter secret message..."
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                />
-            </div>
+            {role === 'alice' ? (
+                <>
+                    <div className="input-group">
+                        <textarea
+                            rows={3}
+                            placeholder="Enter secret message to send to Bob..."
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                        />
+                    </div>
 
-            <button className="btn btn-primary" onClick={handleSend} style={{ width: '100%' }}>
-                <Send size={16} /> Encrypt & Send
-            </button>
+                    <button className="btn btn-primary" onClick={handleSend} style={{ width: '100%' }}>
+                        <Send size={16} /> Encrypt & Send to Network
+                    </button>
+                </>
+            ) : (
+                <>
+                    <button 
+                        className="btn btn-primary" 
+                        onClick={handleReceive} 
+                        style={{ width: '100%', backgroundColor: '#4caf50' }}
+                        disabled={isPolling}
+                    >
+                        <Unlock size={16} /> {isPolling ? 'Checking Network...' : 'Check for New Messages'}
+                    </button>
+                </>
+            )}
 
             {encrypted && (
                 <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,0,0,0.3)', borderRadius: '10px' }}>
@@ -74,9 +131,9 @@ const Messaging: React.FC = () => {
                 </div>
             )}
 
-            {decrypted && (
+            {decrypted && role === 'bob' && (
                 <div style={{ marginTop: '10px', padding: '15px', background: 'rgba(76, 175, 80, 0.1)', borderRadius: '10px' }}>
-                    <div style={{ color: '#aaa', fontSize: '12px', marginBottom: '5px' }}>Decrypted Output</div>
+                    <div style={{ color: '#aaa', fontSize: '12px', marginBottom: '5px' }}>Decrypted Original Message</div>
                     <div style={{ color: '#81c784', fontWeight: 'bold' }}>
                         {decrypted}
                     </div>

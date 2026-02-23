@@ -469,15 +469,59 @@ def encrypt_message():
         encrypted_bits.append(bit ^ k_bit)
         
     # Convert encrypted bits to hex stream
-    # Ensure divisible by 4 for exact hex representation
     while len(encrypted_bits) % 4 != 0:
-        encrypted_bits.insert(0, 0) # Pad at front shouldn't break decoding if we read from back, actually better pad at end 
+        encrypted_bits.insert(0, 0)
         
     enc_int = int(''.join(map(str, encrypted_bits)), 2)
     hex_len = (len(encrypted_bits) + 3) // 4
     encrypted_hex = f"{enc_int:0{hex_len}x}"
     
+    # Save the encrypted hex to the 'outbox'
+    # Actually need to add 'outbox' to the Alice class 
+    # but for simplicity, just attach it dynamically or use a global dict
+    if not hasattr(alice, 'outbox'):
+        alice.outbox = []
+    alice.outbox.append(encrypted_hex)
+    print(f"[Backend] Message stored in outbox. Total messages: {len(alice.outbox)}")
+    
     return jsonify({"encrypted_hex": encrypted_hex})
+
+@app.route('/api/get_message', methods=['GET'])
+def get_message():
+    """Alice exposes her outbox via this endpoint."""
+    if not hasattr(alice, 'outbox') or len(alice.outbox) == 0:
+        return jsonify({"messages": []})
+    
+    # Return all messages in the outbox
+    return jsonify({"messages": alice.outbox})
+
+@app.route('/api/fetch_message_from_peer', methods=['POST'])
+def fetch_message_from_peer():
+    """Bob uses this endpoint to ask his backend to poll Alice's backend for messages."""
+    import requests
+    data = request.json
+    peer_ip = data.get('peer_ip')
+    
+    if not peer_ip:
+        return jsonify({"error": "Peer IP required"}), 400
+        
+    try:
+        # Ask Alice's backend for her outbox
+        target_url = f"http://{peer_ip}:5000/api/get_message"
+        print(f"[Bob] Polling for messages from {target_url}...")
+        resp = requests.get(target_url, timeout=5)
+        
+        if resp.status_code != 200:
+             return jsonify({"error": f"Failed to fetch messages from peer: {resp.text}"}), 500
+             
+        data = resp.json()
+        messages = data.get('messages', [])
+        
+        return jsonify({"messages": messages})
+
+    except Exception as e:
+        print(f"Error fetching messages from peer: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/decrypt_message', methods=['POST'])
 def decrypt_message():
