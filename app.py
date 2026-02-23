@@ -446,6 +446,90 @@ def verify_peer_sample():
         print(f"Error during network verification: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/encrypt_message', methods=['POST'])
+def encrypt_message():
+    data = request.json
+    message = data.get('message', '')
+    key_str = data.get('key', '')
+    
+    if not message or not key_str:
+        return jsonify({"error": "Message and key required"}), 400
+        
+    # Convert message to bits
+    msg_bytes = message.encode('utf-8')
+    msg_bits = []
+    for byte in msg_bytes:
+        msg_bits.extend([int(b) for b in format(byte, '08b')])
+        
+    # XOR with key (OTP simulation)
+    encrypted_bits = []
+    key_len = len(key_str)
+    for i, bit in enumerate(msg_bits):
+        k_bit = int(key_str[i % key_len])
+        encrypted_bits.append(bit ^ k_bit)
+        
+    # Convert encrypted bits to hex stream
+    # Ensure divisible by 4 for exact hex representation
+    while len(encrypted_bits) % 4 != 0:
+        encrypted_bits.insert(0, 0) # Pad at front shouldn't break decoding if we read from back, actually better pad at end 
+        
+    enc_int = int(''.join(map(str, encrypted_bits)), 2)
+    hex_len = (len(encrypted_bits) + 3) // 4
+    encrypted_hex = f"{enc_int:0{hex_len}x}"
+    
+    return jsonify({"encrypted_hex": encrypted_hex})
+
+@app.route('/api/decrypt_message', methods=['POST'])
+def decrypt_message():
+    data = request.json
+    encrypted_hex = data.get('encrypted_hex', '')
+    key_str = data.get('key', '')
+    
+    if not encrypted_hex or not key_str:
+        return jsonify({"error": "Encrypted message and key required"}), 400
+        
+    # Convert hex to bits
+    hex_len = len(encrypted_hex)
+    enc_int = int(encrypted_hex, 16)
+    encrypted_bitsStr = format(enc_int, f'0{hex_len*4}b')
+    encrypted_bits = [int(b) for b in encrypted_bitsStr]
+    
+    # Remove padding if any (for simple XOR, we padded front? No, wait)
+    # Actually my previous Python 3 padding for bits was:
+    # while len(encrypted_bits) % 8 != 0:
+    # We should be careful about padding.
+    # Let's write a safer pad:
+    
+    # Better logic:
+    
+    # XOR with key
+    decrypted_bits = []
+    key_len = len(key_str)
+    
+    # To avoid padding issues: let's pad at the end with 0s so it doesn't affect the string prefix
+    
+    # Let's just do a direct XOR for the bits we have. But the length from HEX might be larger.
+    # We will just XOR all bits. Extra bits at the end will just form null bytes.
+    for i, bit in enumerate(encrypted_bits):
+        # Prevent out of bounds if encrypted_bits is smaller than expected, but it should be exact.
+        k_bit = int(key_str[i % key_len]) if key_len > 0 else 0
+        decrypted_bits.append(bit ^ k_bit)
+        
+    # Convert bits to string
+    msg_bytes = bytearray()
+    for i in range(0, len(decrypted_bits), 8):
+        byte_bits = decrypted_bits[i:i+8]
+        if len(byte_bits) == 8:
+            msg_bytes.append(int(''.join(map(str, byte_bits)), 2))
+            
+    try:
+        # Strip null bytes in case of padding
+        decrypted_message = msg_bytes.decode('utf-8').rstrip('\x00')
+    except:
+        decrypted_message = "<decryption failed>"
+        
+    return jsonify({"decrypted_message": decrypted_message})
+
 if __name__ == '__main__':
     print("Starting Antigravity Quantum Server...")
     app.run(host='0.0.0.0', port=5000, debug=True)
