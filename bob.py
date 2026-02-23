@@ -50,7 +50,17 @@ class Bob(Node):
             # In a real system, this would be a physical detector click
             result = self.simulator.run(measure_circuit, shots=1, memory=True).result()
             measured_bit_str = result.get_memory()[0]
-            self.measured_bits.append(int(measured_bit_str))
+            # measured_bit_str might be "0 0" or something if multiple measurements occurred.
+            # We just take the first character of the string, which is the most recently measured bit.
+            # Qiskit sometimes returns spaces if there are multiple classical registers.
+            # We just grab the first valid '0' or '1' character.
+            valid_char = '0'
+            for char in measured_bit_str:
+                if char in ('0', '1'):
+                    valid_char = char
+                    break
+                    
+            self.measured_bits.append(int(valid_char))
 
         self.log(f"Measurement complete. Bases: {self.bob_bases}, Bits: {self.measured_bits}")
         return self.bob_bases, self.measured_bits

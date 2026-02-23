@@ -47,6 +47,7 @@ def generate_keys():
 
     # Alice generates keys (Standard BB84)
     alice.prepare_quantum_states(length)
+    alice.shared_key = None # CLEAR PREVIOUS KEY
     
     # Get the raw data from Alice
     raw_bits = alice.raw_bits
@@ -120,14 +121,14 @@ def bob_measure():
     if not qubit_data:
         # Fallback for local testing if Alice is in memory
         if alice.encoded_qubits:
-             # We can't really "measure" the global alice object safely if we want to be realistic.
-             # Let's generate circuits from the global alice state if local.
-             pass
-        return jsonify({"error": "No qubit data received"}), 400
+             bob_bases, measured_bits = bob.measure_qubits(alice.encoded_qubits)
+             return jsonify({
+                 "bobBases": bob_bases,
+                 "measuredBits": measured_bits
+             })
+        return jsonify({"error": "No qubit data received and no local state"}), 400
 
-    # Reconstruct circuits for Bob to measure
-    # Bob doesn't know 'bit' (secret), he just gets a photon. 
-    # But to simulate 'getting a photon', we create the circuit representing that photon.
+    # Reconstruct circuits for Bob to measure (Network Mode)
     received_qubits = []
     for q in qubit_data:
         qc = QuantumCircuit(1)
@@ -214,34 +215,28 @@ def sample_key():
 @app.route('/api/compare_sample', methods=['POST'])
 def compare_sample():
     data = request.json
-    sample_indices = data.get('sampleIndices')
-    bob_sample_bits = data.get('bobSampleBits')
+    sample_indices = data.get('sampleIndices', [])
+    bob_sample_bits = data.get('bobSampleBits', [])
     
-    if not (sample_indices and bob_sample_bits):
-        return jsonify({"error": "Missing sample data"}), 400
-        
-    # Alice compares with her raw bits
-    # But wait, Alice's SIFTED bits might be at different indices than Raw bits?
-    # NO. Sifted key is a subset. 
-    # Bob has sifted key. Sample indices are indices into the SIFTED key, not Raw.
-    # We need Alice's SIFTED key to compare correctly.
-    
-    # We need to reconstruction Alice's sifted key first.
-    # In `sift_keys` endpoint, we returned `matches` (indices in raw key).
-    # We can use that.
-    
-    # Ideally, client sends 'matches' too, or we store them.
-    # Let's ask client to send 'originalMatches' (indices in raw key).
-    
-    matches = data.get('originalMatches') # The list of indices where bases matched
+    # We still need to reconstruct Alice's sifted key
+    matches = data.get('originalMatches') 
     if not matches:
          return jsonify({"error": "Missing original match indices"}), 400
+         
+    if not alice.raw_bits:
+         print("[Backend Error] compare_sample called but alice.raw_bits is None!")
+         return jsonify({"error": "Alice has no raw bits. Did she generate them?"}), 400
          
     # Alice's sifted key
     alice_sifted = [alice.raw_bits[i] for i in matches]
     
     # Now get the specific sample bits from Alice's sifted key
-    alice_sample_bits = [alice_sifted[i] for i in sample_indices]
+    alice_sample_bits = []
+    try:
+        alice_sample_bits = [alice_sifted[i] for i in sample_indices]
+    except IndexError as e:
+        print(f"[Backend Error] Index out of bounds in sample: {e}. Sifted len: {len(alice_sifted)}")
+        return jsonify({"error": "Invalid sample indices"}), 400
     
     # Compare
     error_count = 0
@@ -253,15 +248,13 @@ def compare_sample():
             
     qber = (error_count / total) * 100 if total > 0 else 0
     
-    # Logic continues below to store key if verified
-
     # If verified (and low error), we can store the final key for Alice
-    if qber == 0: # Strict check for this demo
-        # Alice's remaining key = sifted key with sample indices removed.
-        # Note: sample_indices are indices INTO the sifted key.
+    if qber == 0: 
         alice_remaining = [alice_sifted[i] for i in range(len(alice_sifted)) if i not in sample_indices]
         alice.shared_key = alice_remaining
-        print(f"[Alice] Key established: {len(alice.shared_key)} bits.")
+        print(f"[Alice] Verified Phase: Key established: {len(alice.shared_key)} bits.")
+    else:
+        print(f"[Alice] Verification failed. QBER: {qber}")
 
     return jsonify({
         "aliceSampleBits": alice_sample_bits,
