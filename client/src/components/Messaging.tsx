@@ -8,7 +8,7 @@ const Messaging: React.FC = () => {
     const [message, setMessage] = useState('');
     const [encrypted, setEncrypted] = useState<string>('');
     const [decrypted, setDecrypted] = useState<string>('');
-    
+
     // Polling state for Bob
     const [isPolling, setIsPolling] = useState(false);
 
@@ -22,7 +22,7 @@ const Messaging: React.FC = () => {
             // Encrypt and store on backend outbox
             const encRes = await axios.post('/api/encrypt_message', {
                 message: message,
-                key: keyStr 
+                key: keyStr
             });
 
             setEncrypted(encRes.data.encrypted_hex);
@@ -39,22 +39,14 @@ const Messaging: React.FC = () => {
         setIsPolling(true);
         try {
             // 1. Fetch encrypted message from Alice
-            let targetEndpoint = '/api/get_message'; // local fallback
-            let payload = {};
-            
-            if (peerIP) {
-                targetEndpoint = '/api/fetch_message_from_peer';
-                payload = { peer_ip: peerIP };
-            }
-
-            const fetchRes = await axios.post(targetEndpoint, payload);
-            
-            // If the endpoint was GET /api/get_message (local test) axios expects different sig but we used POST above for peer. 
-            // Wait, local fallback should just be GET /api/get_message
             let msgs = [];
+
             if (peerIP) {
+                // Network fetch
+                const fetchRes = await axios.post('/api/fetch_message_from_peer', { peer_ip: peerIP });
                 msgs = fetchRes.data.messages || [];
             } else {
+                // Local fallback
                 const getRes = await axios.get('/api/get_message');
                 msgs = getRes.data.messages || [];
             }
@@ -111,9 +103,9 @@ const Messaging: React.FC = () => {
                 </>
             ) : (
                 <>
-                    <button 
-                        className="btn btn-primary" 
-                        onClick={handleReceive} 
+                    <button
+                        className="btn btn-primary"
+                        onClick={handleReceive}
                         style={{ width: '100%', backgroundColor: '#4caf50' }}
                         disabled={isPolling}
                     >
