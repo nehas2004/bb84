@@ -1,9 +1,8 @@
-import React, { useEffect, useRef } from 'react';
-import { useProject } from '../context/ProjectContext';
-import { Terminal } from 'lucide-react';
+import React, { useRef, useEffect } from 'react';
+import { useQChat } from '../context/ProjectContext';
 
 const LogTerminal: React.FC = () => {
-    const { logs } = useProject();
+    const { logs } = useQChat();
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -11,22 +10,21 @@ const LogTerminal: React.FC = () => {
     }, [logs]);
 
     return (
-        <div className="card" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-            <h2 style={{ fontSize: '14px', marginBottom: '10px', color: '#666' }}>
-                <Terminal size={14} /> System Logs
-            </h2>
-            <div className="logs">
-                {logs.length === 0 && <div style={{ color: '#444' }}>System ready. Waiting for events...</div>}
-                {logs.map((log, i) => (
-                    <div key={i} className="log-entry">
-                        <span style={{ color: '#444', marginRight: '10px' }}>[{log.time}]</span>
-                        <span className={`log-${log.type}`}>
-                            {log.type.toUpperCase()}: {log.message}
-                        </span>
+        <div className="log-terminal">
+            <div className="log-terminal__title">📋 Activity Log</div>
+            {logs.length === 0 ? (
+                <div style={{ color: 'var(--text-muted)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
+                    Waiting for activity...
+                </div>
+            ) : (
+                logs.slice(-20).map((log, i) => (
+                    <div key={i} className={`log-entry log-entry--${log.type}`}>
+                        <span className="log-entry__time">{log.time}</span>
+                        {log.message}
                     </div>
-                ))}
-                <div ref={bottomRef} />
-            </div>
+                ))
+            )}
+            <div ref={bottomRef} />
         </div>
     );
 };
