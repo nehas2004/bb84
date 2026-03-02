@@ -693,22 +693,26 @@ def qkd_quick_generate():
     length = int(data.get('length', 20))
     
     from randomkey import generate_masked_key
-    raw_bits, alice_bases, quantum_data = generate_masked_key(length)
+    raw_bits, alice_bases, _ = generate_masked_key(length)
     
-    noisy_data, _ = _apply_network_noise(quantum_data, noise_config['network_noise_rate'])
-    final_data = _apply_channel_noise(noisy_data, noise_config)
+    noisy_data = [{"bit": int(b), "basis": int(bs)} for b, bs in zip(raw_bits, alice_bases)]
+    if noise_config.get("eve_active", False):
+        noisy_data = _apply_eve(noisy_data)
+        
+    noisy_data, _ = _apply_packet_loss(noisy_data, noise_config.get("packet_loss_rate", 0))
+    noisy_data, _ = _apply_network_noise(noisy_data, noise_config.get("network_noise_rate", 0))
     
-    bob.set_quantum_data(final_data)
-    measured_bits, bob_bases = bob.measure_qubits()
+    received_qubits = _build_circuits_from_qubit_data(noisy_data)
+    bob_bases, measured_bits = bob.measure_qubits(received_qubits, noise_config=noise_config)
     
-    matches, sifted_key = bob.compare_bases(alice_bases)
+    sifted_bob, matches = bob.sift_keys(alice_bases, bob_bases, measured_bits)
     alice_sifted = [raw_bits[i] for i in matches]
     
-    sample_size = min(len(sifted_key)//3, 8)
+    sample_size = min(len(sifted_bob)//3, 8)
     if sample_size == 0:
-        sample_size = len(sifted_key)
+        sample_size = len(sifted_bob)
     alice_sample = alice_sifted[:sample_size]
-    bob_sample = sifted_key[:sample_size]
+    bob_sample = sifted_bob[:sample_size]
     
     errors = sum(1 for a, b in zip(alice_sample, bob_sample) if a != b)
     qber = (errors / sample_size * 100) if sample_size > 0 else 0.0
@@ -724,7 +728,7 @@ def qkd_quick_generate():
         "aliceBases": alice_bases,
         "bobBases": bob_bases,
         "measuredBits": measured_bits,
-        "siftedKey": sifted_key,
+        "siftedKey": sifted_bob,
         "matches": matches,
         "finalKey": final_key,
         "keyLength": len(final_key),
