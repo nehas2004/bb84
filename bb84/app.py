@@ -307,12 +307,11 @@ def sift_keys():
     bob_bases_trimmed   = bob_bases[:min_len]
     bob_bits_trimmed    = bob_bits[:min_len]
 
-    sifted_key, matches, ghost_traps = bob.sift_keys(alice_bases_trimmed, bob_bases_trimmed, bob_bits_trimmed)
+    sifted_key, matches = bob.sift_keys(alice_bases_trimmed, bob_bases_trimmed, bob_bits_trimmed)
 
     return jsonify({
         "siftedKey": sifted_key,
         "matches":   matches,
-        "ghostTraps": ghost_traps,
     })
 
 
@@ -686,7 +685,7 @@ def qkd_quick_generate():
 
     # 4. Sift
     min_len = min(len(alice_bases), len(bob_bases_list))
-    sifted_key, matches, ghost_traps = bob.sift_keys(
+    sifted_key, matches = bob.sift_keys(
         alice_bases[:min_len], bob_bases_list[:min_len], measured_bits[:min_len]
     )
 
@@ -717,7 +716,6 @@ def qkd_quick_generate():
         "measuredBits":   measured_bits,
         "siftedKey":      sifted_key,
         "matches":        matches,
-        "ghostTraps":     ghost_traps,
         "finalKey":       final_key,
         "keyLength":      len(final_key),
         "qber":           qber,

@@ -47,12 +47,8 @@ class Bob(Node):
             simulator = self.simulator  # ideal
 
         num_qubits = len(encoded_qubits)
-        # Ghost-Bit Trap: Generate 1 random basis per chunk of 4
-        self.bob_bases = []
-        for i in range(0, num_qubits, 4):
-            chunk_basis = secrets.choice([0, 1])
-            self.bob_bases.extend([chunk_basis] * min(4, num_qubits - i))
-            
+        # Generate random bases: 0 = Rectilinear (+), 1 = Diagonal (x)
+        self.bob_bases = [secrets.choice([0, 1]) for _ in range(num_qubits)]
         self.measured_bits = []
 
         for i, qc in enumerate(encoded_qubits):
@@ -85,49 +81,24 @@ class Bob(Node):
         self.log(f"Measurement complete. Bases: {self.bob_bases}, Bits: {self.measured_bits}")
         return self.bob_bases, self.measured_bits
 
-    def sift_keys(self, alice_bases, bob_bases, measured_bits, apply_ghost_trap=True):
+    def sift_keys(self, alice_bases, bob_bases, measured_bits):
         """
         Compares Alice's bases and Bob's bases.
         Keeps the bits where bases match.
-        If Ghost Trap is enabled, verifies parity in chunks of 4.
         """
-        self.log("Sifting keys (with Ghost-Bit Trap)...")
+        self.log("Sifting keys...")
         sifted_key = []
         matching_indices = []
-        ghost_traps_triggered = 0
 
-        # Ensure lengths match
-        min_len = min(len(alice_bases), len(bob_bases), len(measured_bits))
-
-        if apply_ghost_trap:
-            # Ghost-Bit Trap: Process in chunks of 4
-            for i in range(0, min_len, 4):
-                chunk_a_bases = alice_bases[i:i+4]
-                chunk_b_bases = bob_bases[i:i+4]
-                chunk_bits = measured_bits[i:i+4]
-                
-                if len(chunk_a_bases) == 4 and chunk_a_bases[0] == chunk_b_bases[0]:
-                    # Bob's chunk basis matched Alice's!
-                    bit0, bit1, bit2, ghost_bit = chunk_bits
-                    if (bit0 + bit1 + bit2) % 2 == ghost_bit:
-                        # Match! No Eve. Keep the 3 real bits.
-                        sifted_key.extend([bit0, bit1, bit2])
-                        matching_indices.extend([i, i+1, i+2])
-                    else:
-                        # Mismatch! Eve tampered!
-                        self.log(f"[Ghost-Bit Trap] Tampering detected at chunk {i // 4}! Discarding 4 bits.")
-                        ghost_traps_triggered += 1
-                        # Self-healing: simply omit these bits from the final key.
-        else:
-            # Standard BB84 fallback
-            for i in range(min_len):
-                if alice_bases[i] == bob_bases[i]:
-                    sifted_key.append(measured_bits[i])
-                    matching_indices.append(i)
+        # Ensure lengths match (or zip until shortest)
+        for i, (a_basis, b_basis) in enumerate(zip(alice_bases, bob_bases)):
+            if a_basis == b_basis:
+                sifted_key.append(measured_bits[i])
+                matching_indices.append(i)
 
         self.sifted_key = sifted_key
-        self.log(f"Sifting complete. Kept {len(sifted_key)} bits. Ghost Traps: {ghost_traps_triggered}")
-        return sifted_key, matching_indices, ghost_traps_triggered
+        self.log(f"Sifting complete. Kept {len(sifted_key)} bits.")
+        return sifted_key, matching_indices
 
     def finalize_key(self, sifted_key):
         """
