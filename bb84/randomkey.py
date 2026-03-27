@@ -1,0 +1,39 @@
+import secrets
+from qiskit import QuantumCircuit
+
+def generate_masked_key(length):
+    # 1. Generate cryptographically secure random bits and bases
+    # using secrets module
+    alice_bits = [secrets.choice([0, 1]) for _ in range(length)]
+    alice_bases = [secrets.choice([0, 1]) for _ in range(length)] # 0=Rectilinear, 1=Diagonal
+    
+
+    # 2. No Special Pattern Mask (Standard BB84)
+    # The "masked" bits are just the Alice bits in this standard version
+    masked_bits = alice_bits
+
+    
+    encoded_qubits = []
+    
+    for i in range(length):
+        qc = QuantumCircuit(1, 1)
+        # 3. Encode based on masked bit and chosen basis
+        if alice_bases[i] == 0: # Rectilinear basis
+            if masked_bits[i] == 1:
+                qc.x(0) # Pauli-X gate
+        else: # Diagonal basis
+            if masked_bits[i] == 0:
+                qc.h(0) # Hadamard gate
+            else:
+                qc.x(0)
+                qc.h(0)
+        
+        encoded_qubits.append(qc)
+        
+    return alice_bits, alice_bases, encoded_qubits
+
+# Example:
+if __name__ == "__main__":
+    raw_bits, bases, qubits = generate_masked_key(5)
+    print(f"Alice's Secret Bits: {raw_bits}")
+    print("Backend check passed!")

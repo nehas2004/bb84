@@ -37,21 +37,12 @@ class Bob(Node):
         # ---------------------------------------------------------------
         # Build the simulator — noisy or ideal based on noise_config
         # ---------------------------------------------------------------
-        use_hardware_noise = noise_config and noise_config.get('use_hardware_noise', False)
-        if use_hardware_noise or (noise_config and noise_config.get('channel_noise_rate', 0) > 0):
-            rate = float(noise_config.get('channel_noise_rate', 0.0))
+        if noise_config and noise_config.get('channel_noise_rate', 0) > 0:
+            rate = float(noise_config['channel_noise_rate'])
             t1   = float(noise_config.get('t1_us', 50.0))
             t2   = float(noise_config.get('t2_us', 30.0))
-            simulator = build_noisy_simulator(
-                use_hardware_noise=use_hardware_noise,
-                depolar_rate=rate,
-                t1_us=t1,
-                t2_us=t2
-            )
-            if use_hardware_noise:
-                self.log(f"[Hardware Noise] Using GenericBackendV2 (65 qubits)")
-            else:
-                self.log(f"[Channel Noise] Custom Depolarizing rate={rate:.3f}, T1={t1}µs, T2={t2}µs")
+            simulator = build_noisy_simulator(depolar_rate=rate, t1_us=t1, t2_us=t2)
+            self.log(f"[Channel Noise] Depolarizing rate={rate:.3f}, T1={t1}µs, T2={t2}µs")
         else:
             simulator = self.simulator  # ideal
 
@@ -60,28 +51,23 @@ class Bob(Node):
         self.bob_bases = [secrets.choice([0, 1]) for _ in range(num_qubits)]
         self.measured_bits = []
 
-        circuits_to_run = []
         for i, qc in enumerate(encoded_qubits):
             # The circuit 'qc' is already prepared by Alice (state |0>, |1>, |+>, or |->)
 
             # If Bob chooses Rectilinear (0): Measure in Z-basis (no extra gate)
             # If Bob chooses Diagonal (1):  Apply H then measure (X-basis)
+
             measure_circuit = qc.copy()
+
             if self.bob_bases[i] == 1:
                 measure_circuit.h(0)
 
             # Add measurement
             measure_circuit.measure_all()
-            circuits_to_run.append(measure_circuit)
 
-        # Transpile all circuits at once
-        compiled_circuits = transpile(circuits_to_run, simulator)
-
-        # Run all circuits in a single batch
-        result = simulator.run(compiled_circuits, shots=1, memory=True).result()
-
-        for i in range(num_qubits):
-            measured_bit_str = result.get_memory(i)[0]
+            # Run simulation (single shot — as in physical photon detection)
+            result = simulator.run(measure_circuit, shots=1, memory=True).result()
+            measured_bit_str = result.get_memory()[0]
 
             # Parse first valid '0' or '1' character from result string
             valid_char = '0'

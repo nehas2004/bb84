@@ -1,35 +1,26 @@
-// @ts-nocheck
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useProject } from '../context/ProjectContext';
-import { Download, ShieldCheck, AlertTriangle, Activity } from 'lucide-react';
+import { Download, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
-import SecurityMetrics from './SecurityMetrics';
 
 const BobPanel: React.FC = () => {
     const {
         addLog,
         bobBits, bobBases, setBobState,
         setSharedKey,
-        keyMetrics, setKeyMetrics,
         peerIP,
         noiseConfig,
-        bobStep: step, setBobStep: setStep,
-        siftedKey, setSiftedKey,
-        matches, setMatches,
-        qber, setQber,
-        pHat, setPHat,
-        qberSn, setQberSn,
-        efficiency, setEfficiency,
-        noiseStats, setNoiseStats
     } = useProject();
 
-    const [isReceiving, setIsReceiving] = useState(false);
-    const [isSifting, setIsSifting] = useState(false);
-    const [isVerifying, setIsVerifying] = useState(false);
+    const [siftedKey, setSiftedKey] = useState<number[]>([]);
+    const [matches, setMatches] = useState<number[]>([]);
+    const [step, setStep] = useState(0); // 0: Ready, 1: Received, 2: Sifted, 3: Verified
+    const [qber, setQber] = useState<number | null>(null);
+    const [efficiency, setEfficiency] = useState<number>(0);
+    const [noiseStats, setNoiseStats] = useState<{ dropped: number; flips: number; original_count: number } | null>(null);
 
     const handleFetch = async () => {
-        setIsReceiving(true);
         try {
             addLog('info', 'Bob receiving qubits...');
 
@@ -60,23 +51,18 @@ const BobPanel: React.FC = () => {
                         addLog('warning', `[Packet Loss] ${res.data.noiseStats.dropped} qubits dropped (photon loss).`);
                     if (res.data.noiseStats?.flips > 0)
                         addLog('warning', `[Network Noise] ${res.data.noiseStats.flips} qubit descriptions corrupted in transit.`);
-                    if (noiseConfig.interception_density > 0)
-                        addLog('warning', `[Eve] Intercept-resend active (p=${noiseConfig.interception_density.toFixed(2)}) — expect elevated QBER.`);
-                    if (noiseConfig.use_hardware_noise)
-                        addLog('info', `[Hardware Noise] IBM GenericBackendV2 engaged.`);
-                    else if (noiseConfig.channel_noise_rate > 0)
-                        addLog('info', `[Channel Noise] Custom depolarizing rate: ${(noiseConfig.channel_noise_rate * 100).toFixed(0)}%.`);
+                    if (noiseConfig.eve_active)
+                        addLog('warning', '[Eve] Intercept-resend active — expect elevated QBER.');
+                    if (noiseConfig.channel_noise_rate > 0)
+                        addLog('info', `[Channel Noise] Qiskit depolarizing rate: ${(noiseConfig.channel_noise_rate * 100).toFixed(0)}%.`);
                 }
             }
         } catch (err: any) {
             addLog('error', err.message || 'Fetch failed');
-        } finally {
-            setIsReceiving(false);
         }
     };
 
     const handleSift = async () => {
-        setIsSifting(true);
         try {
             let aliceBasesToUse: number[] = [];
 
@@ -100,13 +86,10 @@ const BobPanel: React.FC = () => {
             addLog('success', `Sifting complete. Kept ${res.data.siftedKey.length} bits.`);
         } catch (err: any) {
             addLog('error', err.response?.data?.error || err.message);
-        } finally {
-            setIsSifting(false);
         }
     };
 
     const handleVerify = async () => {
-        setIsVerifying(true);
         try {
             addLog('info', 'Sampling bits for verification...');
 
@@ -132,25 +115,18 @@ const BobPanel: React.FC = () => {
                 res = { data: { ...compareRes.data, remainingKey } };
             }
 
-            const { errorCount, qber: newQber, p_hat: newPHat, p_hat, qber_sn, remainingKey, keyMetrics: newMetrics } = res.data;
-            if (typeof newQber === 'number') setQber(newQber);
-            if (newPHat !== undefined) setPHat(newPHat);
-            else if (p_hat !== undefined) setPHat(p_hat);
-            if (qber_sn !== undefined) setQberSn(qber_sn);
+            const { errorCount, qber: newQber, remainingKey } = res.data;
+            setQber(newQber);
 
-            if (newMetrics && Object.keys(newMetrics).length > 0) {
-                setKeyMetrics(newMetrics);
-                addLog('info', `[Security] Entropy: ${newMetrics.entropy?.toFixed(3)} bits | Correlation: ${newMetrics.correlation?.toFixed(3)} | Efficiency: ${newMetrics.efficiency?.toFixed(1)}%`);
+            if (errorCount > 0) {
+                const cause = noiseConfig.eve_active ? '⚠️ Eve detected!' : 'Channel interference';
+                addLog('error', `QBER: ${newQber.toFixed(2)}% (${errorCount} errors) — ${cause}`);
+                if (newQber > 20) {
+                    addLog('error', 'QBER > 20% — Aborting key exchange for security.');
+                    return;
+                }
             } else {
-                setKeyMetrics(null);
-            }
-
-            if (res.data.verified) {
-                addLog('success', `Verification Success! QBER: ${newQber?.toFixed(2)}% | Est. p_hat: ${p_hat?.toFixed(3)}`);
-            } else {
-                addLog('error', `QBER: ${newQber?.toFixed(2)}% (${errorCount} errors) — Est. p_hat: ${p_hat?.toFixed(3)} | Verification Failed.`);
-                addLog('error', 'Aborting key exchange due to verification failure.');
-                return;
+                addLog('success', 'QBER: 0% — Secure channel confirmed.');
             }
 
             setSharedKey(remainingKey);
@@ -160,17 +136,15 @@ const BobPanel: React.FC = () => {
 
         } catch (err: any) {
             addLog('error', err.response?.data?.error || err.message);
-        } finally {
-            setIsVerifying(false);
         }
     };
 
     // QBER colour helpers
     const qberColor = (q: number) => {
-        if (q === 0) return 'var(--green)';
-        if (q < 5) return '#6b8e23';
-        if (q < 20) return 'var(--orange)';
-        return 'var(--red)';
+        if (q === 0) return '#4caf50';
+        if (q < 5) return '#8bc34a';
+        if (q < 20) return '#ff9800';
+        return '#f44336';
     };
     const qberLabel = (q: number) => {
         if (q === 0) return '✅ Secure';
@@ -180,51 +154,46 @@ const BobPanel: React.FC = () => {
     };
 
     return (
-        <div className="card">
-            <div className="section-title">
-                <Download size={22} /> Bob (Receiver)
+        <div className="card bob-container">
+            <div className="section-title" style={{ color: '#ff9800' }}>
+                <Download /> Bob (Receiver)
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
                 <button
                     className="btn btn-primary"
+                    style={{ backgroundColor: '#ff9800', backgroundImage: 'linear-gradient(135deg, #ff9800 0%, #ffed4e 100%)' }}
                     onClick={handleFetch}
-                    disabled={step > 0 || isReceiving}
-                    style={{ padding: '0 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    disabled={step > 0}
                 >
-                    {isReceiving ? <><Activity size={16} className="animate-pulse" /> Receiving...</> : '📥 Receive Qubits'}
+                    📥 Receive Qubits
                 </button>
 
-                <div style={{ width: '1px', background: 'var(--border-strong)', margin: '0 8px' }}></div>
+                <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
 
                 <button
                     className="btn btn-secondary"
                     onClick={handleSift}
-                    disabled={step !== 1 || isSifting}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                    disabled={step !== 1}
                 >
-                    {isSifting ? <><Activity size={16} className="animate-pulse" /> Sifting...</> : '🔍 Sift Keys'}
+                    🔍 Sift Keys
                 </button>
 
                 <button
                     className="btn btn-secondary"
                     onClick={handleVerify}
-                    disabled={step !== 2 || isVerifying}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                    disabled={step !== 2}
                 >
-                    {isVerifying ? <><Activity size={16} className="animate-pulse" /> Verifying...</> : '🛡️ Verify & Finalize'}
+                    🛡️ Verify &amp; Finalize
                 </button>
 
                 {step > 0 && (
                     <button
                         className="btn btn-secondary"
-                        style={{ fontSize: 13, padding: '0 16px', marginLeft: 'auto' }}
+                        style={{ fontSize: 11 }}
                         onClick={() => {
                             setStep(0);
                             setQber(null);
-                            setPHat(null);
-                            setKeyMetrics(null);
-                            setQberSn(null);
                             setSiftedKey([]);
                             setMatches([]);
                             setNoiseStats(null);
@@ -241,64 +210,41 @@ const BobPanel: React.FC = () => {
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     style={{
-                        marginBottom: 24,
-                        padding: '12px 16px',
-                        borderRadius: 'var(--radius-sm)',
-                        background: 'var(--orange-warning-bg)',
-                        border: '1px solid #eed88d',
-                        fontSize: 13,
-                        fontWeight: 500,
+                        marginBottom: 14,
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        background: 'rgba(255,152,0,0.08)',
+                        border: '1px solid rgba(255,152,0,0.3)',
+                        fontSize: 12,
                         display: 'flex',
                         gap: 16,
                     }}
                 >
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                        Sent: <strong style={{ color: 'var(--text-primary)' }}>{noiseStats.original_count}</strong>
+                    <span style={{ color: '#888' }}>
+                        Sent: <strong style={{ color: '#ddd' }}>{noiseStats.original_count}</strong>
                     </span>
                     {noiseStats.dropped > 0 && (
-                        <span style={{ color: 'var(--accent-blue)' }}>
-                            📦 Lost: <strong>{noiseStats.dropped}</strong>
+                        <span style={{ color: '#00bcd4' }}>
+                            📦 Lost: <strong>{noiseStats.dropped}</strong> qubits
                         </span>
                     )}
                     {noiseStats.flips > 0 && (
-                        <span style={{ color: 'var(--orange-warning)' }}>
-                            📡 Corrupted: <strong>{noiseStats.flips}</strong>
+                        <span style={{ color: '#ff9800' }}>
+                            📡 Corrupted: <strong>{noiseStats.flips}</strong> qubits
                         </span>
                     )}
-                    {noiseConfig.interception_density > 0 && (
-                        <span style={{ color: 'var(--red-error)' }}>
-                            🕵️ Eve (Tap Density: {noiseConfig.interception_density})
+                    {noiseConfig.eve_active && (
+                        <span style={{ color: '#ff4444' }}>
+                            🕵️ Eve Active
                         </span>
                     )}
                 </motion.div>
             )}
 
-            {/* Receiving Placeholder */}
-            {isReceiving && bobBits.length === 0 && (
-                <div style={{ marginBottom: '24px' }}>
-                    <div style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        📡 Traversing Quantum Channel...
-                    </div>
-                    <div className="visual-grid">
-                        {Array.from({ length: 40 }).map((_, i) => (
-                            <motion.div
-                                key={i}
-                                animate={{ opacity: [0.1, 0.4, 0.1], scale: [0.95, 1, 0.95] }}
-                                transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.05 }}
-                                className="box"
-                                style={{ background: 'var(--bg-hover)', border: '1px dashed var(--border-light)' }}
-                            />
-                        ))}
-                    </div>
-                </div>
-            )}
-
             {/* Bob's measurements */}
-            {!isReceiving && bobBits.length > 0 && (
-                <div style={{ marginBottom: '24px' }}>
-                    <div style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Bob's Measurements
-                    </div>
+            {bobBits.length > 0 && (
+                <div className="mb-4">
+                    <div style={{ marginBottom: '5px', fontSize: '12px', color: '#999' }}>Bob's Measurements</div>
                     <div className="visual-grid">
                         {bobBits.map((b, i) => (
                             <motion.div
@@ -315,64 +261,51 @@ const BobPanel: React.FC = () => {
             )}
 
             {/* QBER indicator */}
-            {typeof qber === 'number' && (
+            {qber !== null && (
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     style={{
-                        marginBottom: 24,
-                        padding: '16px 20px',
-                        borderRadius: 'var(--radius-md)',
+                        marginBottom: 14,
+                        padding: '10px 14px',
+                        borderRadius: 10,
                         background: `${qberColor(qber)}15`,
-                        border: `1px solid ${qberColor(qber)}40`,
+                        border: `1px solid ${qberColor(qber)}55`,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 16,
+                        gap: 12,
                     }}
                 >
-                    <div className="display-font" style={{ fontSize: 28, fontWeight: 600, color: qberColor(qber), minWidth: 80 }}>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: qberColor(qber), fontFamily: 'monospace', minWidth: 60 }}>
                         {qber.toFixed(1)}%
                     </div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ color: qberColor(qber), fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{qberLabel(qber)}</div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 13, display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                            <span><strong>QBER</strong>: {qber.toFixed(1)}%</span>
-                            {pHat !== null && (
-                                <span style={{ color: pHat > 0.05 ? 'var(--red-error)' : 'inherit' }}>
-                                    <strong>Est. Intrusion (p̂)</strong>: {pHat.toFixed(3)}
-                                </span>
-                            )}
-                            {qberSn !== null && noiseConfig.use_hardware_noise && (
-                                <span><strong>Baseline Noise (QBER_SN)</strong>: {qberSn}%</span>
-                            )}
+                    <div>
+                        <div style={{ color: qberColor(qber), fontWeight: 700, fontSize: 13 }}>{qberLabel(qber)}</div>
+                        <div style={{ color: '#888', fontSize: 11, marginTop: 2 }}>
+                            QBER (Quantum Bit Error Rate)
+                            {qber > 0 && noiseConfig.eve_active && ' — Eve intercept-resend attack'}
+                            {qber > 0 && !noiseConfig.eve_active && noiseConfig.channel_noise_rate > 0 && ' — channel depolarizing noise'}
+                            {qber > 0 && !noiseConfig.eve_active && noiseConfig.network_noise_rate > 0 && ' — network bit-flip noise'}
                         </div>
                     </div>
                 </motion.div>
             )}
-
-            <SecurityMetrics metrics={keyMetrics} qber={qber} pHat={pHat} />
 
             {/* Finalized key */}
             {step >= 3 && (
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    style={{
-                        marginTop: '32px',
-                        padding: '24px',
-                        borderRadius: 'var(--radius-md)',
-                        background: 'var(--green-success-bg)',
-                        border: '1px solid rgba(26, 127, 55, 0.1)'
-                    }}
+                    className="mt-4 p-4 rounded-lg bg-green-900/20 border border-green-500/30"
                 >
-                    <div className="display-font" style={{ color: 'var(--green-success)', fontWeight: 600, fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ color: '#4caf50', fontWeight: 'bold', marginBottom: '10px' }}>
                         ✅ Final Secure Shared Key
                     </div>
                     <div className="visual-grid">
                         <SharedKeyVisual />
                     </div>
-                    <div style={{ fontSize: '14px', marginTop: '16px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                        Efficiency: <span style={{ color: 'var(--text-primary)' }}>{efficiency}%</span> | QBER: <span style={{ color: 'var(--text-primary)' }}>{qber?.toFixed(2)}%</span>
+                    <div style={{ fontSize: '12px', marginTop: '10px', color: '#aaa' }}>
+                        Efficiency: {efficiency}% | QBER: {qber?.toFixed(2)}%
                     </div>
                 </motion.div>
             )}

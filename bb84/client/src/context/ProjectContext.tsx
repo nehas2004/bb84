@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { defaultConfig } from '../components/NoisePanel';
+import type { NoiseConfig } from '../components/NoisePanel';
 
 interface LogEntry {
     type: 'info' | 'success' | 'warning' | 'error';
@@ -32,31 +34,11 @@ interface ProjectContextType {
     sharedKey: number[];
     setSharedKey: (key: number[]) => void;
 
-    bobStep: number;
-    setBobStep: (step: number) => void;
-    siftedKey: number[];
-    setSiftedKey: (key: number[]) => void;
-    matches: number[];
-    setMatches: (matches: number[]) => void;
-    qber: number | null;
-    setQber: (qber: number | null) => void;
-    pHat: number | null;
-    setPHat: (pHat: number | null) => void;
-    qberSn: number | null;
-    setQberSn: (qberSn: number | null) => void;
-    efficiency: number;
-    setEfficiency: (eff: number) => void;
-    noiseStats: any;
-    setNoiseStats: (stats: any | null) => void;
-
-    keyMetrics: any;
-    setKeyMetrics: (m: any) => void;
-
-    // Network Config
-    noiseConfig: any;
-    setNoiseConfig: (config: any) => void;
-
     resetState: () => void;
+
+    // Noise
+    noiseConfig: NoiseConfig;
+    setNoiseConfig: (cfg: NoiseConfig) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -80,20 +62,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const [bobBases, setBobBases] = useState<number[]>([]);
     const [bobBits, setBobBits] = useState<number[]>([]);
 
-    const [bobStep, setBobStep] = useState<number>(0);
-    const [siftedKey, setSiftedKey] = useState<number[]>([]);
-    const [matches, setMatches] = useState<number[]>([]);
-    const [qber, setQber] = useState<number | null>(null);
-    const [pHat, setPHat] = useState<number | null>(null);
-    const [qberSn, setQberSn] = useState<number | null>(null);
-    const [efficiency, setEfficiency] = useState<number>(0);
-    const [noiseStats, setNoiseStats] = useState<any | null>(null);
-
     const [sharedKey, setSharedKey] = useState<number[]>([]);
-    const [keyMetrics, setKeyMetrics] = useState<any>(null);
-    const [noiseConfig, setNoiseConfig] = useState<any>({ eve_active: false });
 
-    const pollRef = useRef<any>(null);
+    // Noise configuration — mirrors backend global noise_config
+    const [noiseConfig, setNoiseConfig] = useState<NoiseConfig>(defaultConfig);
 
     useEffect(() => {
         // Initial Config Fetch
@@ -101,40 +73,19 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
             .then(res => {
                 if (res.data.local_ip) {
                     setLocalIP(res.data.local_ip);
-                    addLog('info', `System initialized. Local IP: ${res.data.local_ip}`);
+                    addLog('info', `System initialized. Your IP: ${res.data.local_ip}`);
                 }
             })
             .catch(err => {
                 console.error(err);
                 addLog('error', 'Failed to fetch local configuration.');
             });
-
-        axios.get('/api/get_noise_config').then(res => {
-            setNoiseConfig(res.data);
-        }).catch(err => console.error(err));
     }, []);
 
     const addLog = (type: LogEntry['type'], message: string) => {
         const time = new Date().toLocaleTimeString();
-        setLogs(prev => [...prev.slice(-99), { type, message, time }]);
+        setLogs(prev => [...prev, { type, message, time }]);
     };
-
-    // Poll for network status to see if a peer connected to us
-    useEffect(() => {
-        pollRef.current = setInterval(async () => {
-            try {
-                const res = await axios.get('/api/network/status');
-                if (res.data.connected && res.data.peer_ip !== peerIP) {
-                    setPeerIP(res.data.peer_ip);
-                    setConnected(true);
-                    addLog('success', `Peer connected from ${res.data.peer_ip}`);
-                }
-            } catch (e) {
-                // ignore
-            }
-        }, 3000);
-        return () => clearInterval(pollRef.current);
-    }, [peerIP]);
 
     const setAliceState = (bits: number[], bases: number[]) => {
         setAliceBits(bits);
@@ -152,37 +103,18 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setBobBases([]);
         setBobBits([]);
         setSharedKey([]);
-        setBobStep(0);
-        setSiftedKey([]);
-        setMatches([]);
-        setQber(null);
-        setPHat(null);
-        setQberSn(null);
-        setEfficiency(0);
-        setNoiseStats(null);
-        setKeyMetrics(null);
         addLog('info', 'State reset.');
-        axios.post('/api/chat/clear').catch(() => {});
     };
 
-    const value: ProjectContextType = {
+    const value = {
         role, setRole,
         logs, addLog,
         localIP, peerIP, setPeerIP, connected, setConnected,
         aliceBits, aliceBases, setAliceState,
         bobBases, bobBits, setBobState,
         sharedKey, setSharedKey,
-        bobStep, setBobStep,
-        siftedKey, setSiftedKey,
-        matches, setMatches,
-        qber, setQber,
-        pHat, setPHat,
-        qberSn, setQberSn,
-        efficiency, setEfficiency,
-        noiseStats, setNoiseStats,
-        keyMetrics, setKeyMetrics,
+        resetState,
         noiseConfig, setNoiseConfig,
-        resetState
     };
 
     return (
