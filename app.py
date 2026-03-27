@@ -1163,14 +1163,16 @@ def chat_send():
 @app.route('/api/chat/messages', methods=['POST'])
 def chat_messages_get():
     data = request.json or {}
-    key_str = data.get('key', '')
+    frontend_key = data.get('key', '')
     
     processed = []
     for msg in chat_messages:
         m = dict(msg)
         # If we received it from a peer, plaintext is stripped over the wire
-        if not m.get('plaintext') and m.get('encrypted_hex') and key_str:
-            m['plaintext'] = _xor_decrypt(m['encrypted_hex'], key_str)
+        if not m.get('plaintext') and m.get('encrypted_hex'):
+            decrypt_key = m.get('key_used') or frontend_key
+            if decrypt_key:
+                m['plaintext'] = _xor_decrypt(m['encrypted_hex'], decrypt_key)
         processed.append(m)
         
     return jsonify({"messages": processed})
@@ -1484,9 +1486,9 @@ def recursive_send_message():
         "sender":        sender,
         "plaintext":     message,
         "encrypted_hex": enc_hex,
-        "msg_bits":      msg_bits[:80] if msg_bits else "",
-        "key_used":      key_str[:40] if key_str else "",
-        "encrypted_bits": enc_bits_str[:80] if enc_bits_str else "",
+        "msg_bits":      msg_bits if msg_bits else "",
+        "key_used":      key_str if key_str else "",
+        "encrypted_bits": enc_bits_str if enc_bits_str else "",
         "timestamp":     int(time.time()),
     }
     chat_messages.append(chat_entry)
