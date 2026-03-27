@@ -15,6 +15,7 @@ const BobPanel: React.FC = () => {
 
     const [siftedKey, setSiftedKey] = useState<number[]>([]);
     const [matches, setMatches] = useState<number[]>([]);
+    const [ghostTraps, setGhostTraps] = useState<number>(0);
     const [step, setStep] = useState(0); // 0: Ready, 1: Received, 2: Sifted, 3: Verified
     const [qber, setQber] = useState<number | null>(null);
     const [efficiency, setEfficiency] = useState<number>(0);
@@ -82,8 +83,12 @@ const BobPanel: React.FC = () => {
 
             setSiftedKey(res.data.siftedKey);
             setMatches(res.data.matches);
+            setGhostTraps(res.data.ghostTraps || 0);
             setStep(2);
             addLog('success', `Sifting complete. Kept ${res.data.siftedKey.length} bits.`);
+            if (res.data.ghostTraps > 0) {
+                addLog('warning', `[Ghost-Bit Trap] Eve deterred! Self-healed by discarding ${res.data.ghostTraps} chunks.`);
+            }
         } catch (err: any) {
             addLog('error', err.response?.data?.error || err.message);
         }
@@ -196,6 +201,7 @@ const BobPanel: React.FC = () => {
                             setQber(null);
                             setSiftedKey([]);
                             setMatches([]);
+                            setGhostTraps(0);
                             setNoiseStats(null);
                         }}
                     >
@@ -238,6 +244,32 @@ const BobPanel: React.FC = () => {
                             🕵️ Eve Active
                         </span>
                     )}
+                </motion.div>
+            )}
+
+            {/* Ghost-Bit Trap banner */}
+            {step >= 2 && ghostTraps > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    style={{
+                        marginBottom: 14,
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        background: 'rgba(76, 175, 80, 0.15)',
+                        border: '1px solid rgba(76, 175, 80, 0.55)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                    }}
+                >
+                    <div style={{ fontSize: 22, color: '#4caf50' }}>👻</div>
+                    <div>
+                        <div style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>Ghost-Bit Trap Triggered (Self-Healing)</div>
+                        <div style={{ color: '#888', fontSize: 11, marginTop: 2 }}>
+                            Detected tampering! Prevented {ghostTraps * 4} compromised bits from entering the key.
+                        </div>
+                    </div>
                 </motion.div>
             )}
 

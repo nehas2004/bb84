@@ -2,14 +2,29 @@ import secrets
 from qiskit import QuantumCircuit
 
 def generate_masked_key(length):
-    # 1. Generate cryptographically secure random bits and bases
-    # using secrets module
-    alice_bits = [secrets.choice([0, 1]) for _ in range(length)]
-    alice_bases = [secrets.choice([0, 1]) for _ in range(length)] # 0=Rectilinear, 1=Diagonal
+    # Ghost-Bit Trap (Self-Healing BB84)
+    # Ensure length is a multiple of 4
+    if length % 4 != 0:
+        length = length + (4 - (length % 4))
+        
+    alice_bits = []
+    alice_bases = []
     
+    # 1. Generate bits and bases in chunks of 4
+    for i in range(0, length, 4):
+        # The Secret Hideout: 1 basis for the entire 4-bit chunk
+        chunk_basis = secrets.choice([0, 1])
+        
+        # The Secret Math: 3 real bits + 1 Ghost parity bit
+        bit0 = secrets.choice([0, 1])
+        bit1 = secrets.choice([0, 1])
+        bit2 = secrets.choice([0, 1])
+        ghost_bit = (bit0 + bit1 + bit2) % 2
+        
+        alice_bits.extend([bit0, bit1, bit2, ghost_bit])
+        alice_bases.extend([chunk_basis] * 4)
 
-    # 2. No Special Pattern Mask (Standard BB84)
-    # The "masked" bits are just the Alice bits in this standard version
+    # 2. No Special Pattern Mask
     masked_bits = alice_bits
 
     
