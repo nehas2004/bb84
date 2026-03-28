@@ -21,14 +21,14 @@ const BobPanel: React.FC = () => {
         pHat, setPHat,
         qberSn, setQberSn,
         efficiency, setEfficiency,
-        noiseStats, setNoiseStats
+        noiseStats, setNoiseStats,
+        ghostResult, setGhostResult,
     } = useProject();
 
     const [isReceiving, setIsReceiving] = useState(false);
     const [isSifting, setIsSifting] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
     const [isGhostRunning, setIsGhostRunning] = useState(false);
-    const [ghostResult, setGhostResult] = useState<any>(null);
 
     const handleFetch = async () => {
         setIsReceiving(true);

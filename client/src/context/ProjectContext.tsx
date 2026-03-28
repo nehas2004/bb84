@@ -52,6 +52,10 @@ interface ProjectContextType {
     keyMetrics: any;
     setKeyMetrics: (m: any) => void;
 
+    // Ghost-Bit Trap result (persists across role switches)
+    ghostResult: any;
+    setGhostResult: (result: any) => void;
+
     // Network Config
     noiseConfig: any;
     setNoiseConfig: (config: any) => void;
@@ -92,6 +96,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const [sharedKey, setSharedKey] = useState<number[]>([]);
     const [keyMetrics, setKeyMetrics] = useState<any>(null);
     const [noiseConfig, setNoiseConfig] = useState<any>({ eve_active: false });
+    const [ghostResult, setGhostResult] = useState<any>(null);
 
     const pollRef = useRef<any>(null);
 
@@ -161,6 +166,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setEfficiency(0);
         setNoiseStats(null);
         setKeyMetrics(null);
+        setGhostResult(null);
         addLog('info', 'State reset.');
         axios.post('/api/chat/clear').catch(() => {});
     };
@@ -181,6 +187,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         efficiency, setEfficiency,
         noiseStats, setNoiseStats,
         keyMetrics, setKeyMetrics,
+        ghostResult, setGhostResult,
         noiseConfig, setNoiseConfig,
         resetState
     };
