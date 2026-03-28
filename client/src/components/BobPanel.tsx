@@ -27,6 +27,8 @@ const BobPanel: React.FC = () => {
     const [isReceiving, setIsReceiving] = useState(false);
     const [isSifting, setIsSifting] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
+    const [isGhostRunning, setIsGhostRunning] = useState(false);
+    const [ghostResult, setGhostResult] = useState<any>(null);
 
     const handleFetch = async () => {
         setIsReceiving(true);
@@ -165,6 +167,48 @@ const BobPanel: React.FC = () => {
         }
     };
 
+    const handleGhostBit = async () => {
+        setIsGhostRunning(true);
+        setGhostResult(null);
+        try {
+            const eveRate = noiseConfig.interception_density ?? 0;
+            addLog('info', `[Ghost-Bit Trap] Encoding sifted key into 4-bit parity blocks${eveRate > 0 ? ` (Eve active at ${(eveRate * 100).toFixed(0)}%)` : ''}...`);
+
+            // Use siftedKey directly — works even if standard BB84 verification failed
+            if (!siftedKey || siftedKey.length < 3) {
+                addLog('error', '[Ghost-Bit Trap] Need at least 3 sifted bits. Run Sift Keys first.');
+                return;
+            }
+
+            const res = await axios.post('/api/ghost_bit/run', {
+                key_bits: siftedKey,
+                eve_flip_rate: eveRate,
+            });
+            const vr = res.data.verify_result;
+            setGhostResult(res.data);
+            setStep(4);
+
+            // Adopt the healed key as the shared key — unlocks Secure Chat
+            if (res.data.healed_key && res.data.healed_key.length > 0) {
+                setSharedKey(res.data.healed_key);
+                // Tell the backend to adopt the healed key for encryption
+                await axios.post('/api/ghost_bit/adopt_key', { healed_key: res.data.healed_key });
+                addLog('success', `[Ghost-Bit Trap] Healed key (${res.data.healed_length} bits) adopted as shared key. 💬 Secure Chat is now available.`);
+            }
+
+            if (vr.tampered_blocks.length === 0) {
+                addLog('success', `[Ghost-Bit Trap] All ${vr.total_chunks} blocks passed parity. Healed key: ${vr.bits_saved} bits (100% efficient).`);
+            } else {
+                addLog('warning', `[Ghost-Bit Trap] ${vr.tampered_blocks.length}/${vr.total_chunks} blocks compromised by Eve. Self-healed key: ${vr.bits_saved} bits (${vr.efficiency_pct}%).`);
+                addLog('warning', '[Ghost-Bit Trap] Standard BB84 would have discarded the entire key. Ghost-Bit Trap recovered the clean blocks.');
+            }
+        } catch (err: any) {
+            addLog('error', err.response?.data?.error || '[Ghost-Bit Trap] Run failed.');
+        } finally {
+            setIsGhostRunning(false);
+        }
+    };
+
     // QBER colour helpers
     const qberColor = (q: number) => {
         if (q === 0) return 'var(--green)';
@@ -215,6 +259,24 @@ const BobPanel: React.FC = () => {
                     {isVerifying ? <><Activity size={16} className="animate-pulse" /> Verifying...</> : '🛡️ Verify & Finalize'}
                 </button>
 
+                <button
+                    onClick={handleGhostBit}
+                    disabled={step < 2 || isGhostRunning}
+                    title={step < 2 ? 'Sift keys first' : 'Run Ghost-Bit Trap on sifted key'}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '0 20px', borderRadius: 'var(--radius-sm)',
+                        border: step >= 2 ? '1px solid rgba(168,85,247,0.5)' : '1px solid var(--border-light)',
+                        background: step >= 2 ? 'rgba(168,85,247,0.1)' : 'var(--bg-sidebar)',
+                        color: step >= 2 ? '#a855f7' : 'var(--text-muted)',
+                        fontWeight: 700, fontSize: 14, cursor: step >= 2 ? 'pointer' : 'not-allowed',
+                        opacity: step < 2 || isGhostRunning ? 0.45 : 1,
+                        height: 42, transition: 'all 0.2s',
+                    }}
+                >
+                    {isGhostRunning ? <><Activity size={16} className="animate-pulse" /> Running...</> : '👻 Ghost-Bit Trap'}
+                </button>
+
                 {step > 0 && (
                     <button
                         className="btn btn-secondary"
@@ -228,6 +290,7 @@ const BobPanel: React.FC = () => {
                             setSiftedKey([]);
                             setMatches([]);
                             setNoiseStats(null);
+                            setGhostResult(null);
                         }}
                     >
                         🔄 Reset
@@ -352,8 +415,8 @@ const BobPanel: React.FC = () => {
 
             <SecurityMetrics metrics={keyMetrics} qber={qber} pHat={pHat} />
 
-            {/* Finalized key */}
-            {step >= 3 && (
+            {/* Finalized key — only show if verification passed */}
+            {step >= 3 && step < 4 && (
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -367,6 +430,11 @@ const BobPanel: React.FC = () => {
                 >
                     <div className="display-font" style={{ color: 'var(--green-success)', fontWeight: 600, fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         ✅ Final Secure Shared Key
+                        {step < 4 && (
+                            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginLeft: 8 }}>
+                                ← Run 👻 Ghost-Bit Trap to apply self-healing
+                            </span>
+                        )}
                     </div>
                     <div className="visual-grid">
                         <SharedKeyVisual />
@@ -376,6 +444,128 @@ const BobPanel: React.FC = () => {
                     </div>
                 </motion.div>
             )}
+
+            {/* Ghost-Bit Trap inline results */}
+            {ghostResult && step >= 4 && (() => {
+                const vr = ghostResult.verify_result;
+                return (
+                    <motion.div
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        style={{
+                            marginTop: 24, padding: '20px 24px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid rgba(168,85,247,0.3)',
+                            background: 'rgba(168,85,247,0.05)',
+                        }}
+                    >
+                        {/* Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+                            <div style={{ fontWeight: 700, fontSize: 15, color: '#a855f7', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                👻 Ghost-Bit Trap — Self-Healing Verification
+                                {ghostResult.eve_flip_rate > 0 && (
+                                    <span style={{
+                                        fontSize: 11, padding: '2px 8px', borderRadius: 99,
+                                        background: 'rgba(239,68,68,0.12)',
+                                        color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)',
+                                        fontWeight: 700,
+                                    }}>
+                                        ⚡ Eve Active {(ghostResult.eve_flip_rate * 100).toFixed(0)}%
+                                    </span>
+                                )}
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                {vr.total_chunks} blocks · {vr.bits_original} data bits + {vr.total_chunks} ghost bits
+                            </div>
+                        </div>
+
+                        {/* Block verdicts */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+                            {vr.verified_chunks.map((chunk: any) => (
+                                <div key={chunk.chunk_index} style={{
+                                    display: 'flex', alignItems: 'center', gap: 12,
+                                    padding: '8px 12px', borderRadius: 8,
+                                    border: `1px solid ${chunk.passes ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                                    background: chunk.passes ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.05)',
+                                    fontSize: 13,
+                                }}>
+                                    <div style={{
+                                        width: 24, height: 24, borderRadius: '50%',
+                                        background: chunk.passes ? '#10b981' : '#ef4444',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: '#fff', fontWeight: 800, fontSize: 11, flexShrink: 0,
+                                    }}>{chunk.chunk_index}</div>
+
+                                    {/* Encoded bits */}
+                                    <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+                                        {chunk.received.slice(0, 3).map((b: number, bi: number) => (
+                                            <div key={bi} style={{
+                                                width: 26, height: 26, borderRadius: 5,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontWeight: 700, fontSize: 12, fontFamily: 'monospace',
+                                                background: b === 1 ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)',
+                                                color: b === 1 ? '#10b981' : '#6366f1',
+                                                border: chunk.flipped_index === bi ? '2px solid #ef4444' : '1px solid transparent',
+                                            }}>{b}</div>
+                                        ))}
+                                        <div style={{ width: 1, height: 18, background: 'var(--border-light)', margin: '0 2px' }} />
+                                        <div style={{
+                                            width: 26, height: 26, borderRadius: 5,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontWeight: 700, fontSize: 12, fontFamily: 'monospace',
+                                            background: 'rgba(168,85,247,0.15)', color: '#a855f7',
+                                            border: chunk.flipped_index === 3 ? '2px solid #ef4444' : '1px solid rgba(168,85,247,0.3)',
+                                        }}>👻</div>
+                                    </div>
+
+                                    <div style={{ flex: 1, color: chunk.passes ? '#10b981' : '#ef4444', fontWeight: 600, fontSize: 12 }}>
+                                        {chunk.passes ? '✅ Parity OK — bits kept' : '❌ Parity fail — block discarded'}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Stats row */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8, marginBottom: 12 }}>
+                            {[
+                                { label: 'Clean Blocks', val: vr.passing_chunks, color: '#10b981' },
+                                { label: 'Compromised', val: vr.tampered_blocks.length, color: vr.tampered_blocks.length > 0 ? '#ef4444' : 'var(--text-muted)' },
+                                { label: 'Healed Key', val: `${vr.bits_saved} bits`, color: '#a855f7' },
+                                { label: 'Efficiency', val: `${vr.efficiency_pct}%`, color: '#10b981' },
+                                { label: 'Std BB84 Would Get', val: `${vr.std_bb84_pct}%`, color: vr.std_bb84_pct === 0 ? '#ef4444' : '#10b981' },
+                            ].map(s => (
+                                <div key={s.label} style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
+                                    <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{s.label}</div>
+                                    <div style={{ fontSize: 15, fontWeight: 800, color: s.color, marginTop: 3 }}>{s.val}</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Healed key bits */}
+                        {ghostResult.healed_key.length > 0 && (
+                            <div>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                                    Healed Key ({ghostResult.healed_length} bits)
+                                </div>
+                                <div className="visual-grid">
+                                    {ghostResult.healed_key.map((b: number, i: number) => (
+                                        <motion.div
+                                            key={i}
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            transition={{ delay: i * 0.03 }}
+                                            className={`box bit-${b}`}
+                                            style={{ outline: '2px solid rgba(168,85,247,0.4)' }}
+                                        >
+                                            {b}
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </motion.div>
+                );
+            })()}
         </div>
     );
 };

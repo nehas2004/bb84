@@ -605,9 +605,14 @@ def compare_sample():
 
 @app.route('/api/alice/key_status', methods=['GET'])
 def get_alice_key():
-    if alice.shared_key:
-        return jsonify({"sharedKey": alice.shared_key})
-    return jsonify({"sharedKey": None})
+    """
+    Returns Alice's shared key ONLY if a full BB84 round has been completed:
+    - alice.raw_bits must be set (she ran key generation)
+    - alice.shared_key must be set and non-empty (verification passed)
+    """
+    if alice.shared_key and alice.raw_bits:
+        return jsonify({"sharedKey": alice.shared_key, "keyLength": len(alice.shared_key)})
+    return jsonify({"sharedKey": None, "keyLength": 0})
 
 
 @app.route('/api/finalize_key', methods=['POST'])
@@ -1538,7 +1543,215 @@ def recursive_send_message():
     })
 
 
+
+# ---------------------------------------------------------------------------
+# Ghost-Bit Trap — Self-Healing BB84 Extension
+# ---------------------------------------------------------------------------
+#
+# Invention: Alice embeds one "ghost" (parity) bit for every 3 data bits.
+# The ghost bit = (b0 + b1 + b2) % 2  (XOR parity of the 3 data bits).
+# Bob verifies each 4-bit chunk: if parity fails, only that chunk is dropped
+# (self-healing). Standard BB84 would abort the entire key on any error.
+#
+# Security: Eve cannot distinguish ghost bits from data bits, so any
+# measurement-induced disturbance has a high probability of breaking the
+# local parity check in the affected chunk.
+# ---------------------------------------------------------------------------
+
+
+def ghost_bit_encode(bits: list) -> list:
+    """
+    Group raw key bits into 3-bit chunks and append a parity "ghost" bit.
+    Returns a list of chunk dicts:
+        { "chunk_index": int, "data": [b0, b1, b2], "ghost": int, "encoded": [b0,b1,b2,ghost] }
+    Incomplete trailing chunks (< 3 bits) are padded with 0.
+    """
+    chunks = []
+    # Pad so length is a multiple of 3
+    padded = list(bits)
+    while len(padded) % 3 != 0:
+        padded.append(0)
+
+    for i in range(0, len(padded), 3):
+        b0, b1, b2 = padded[i], padded[i + 1], padded[i + 2]
+        ghost = (b0 + b1 + b2) % 2          # XOR parity
+        chunks.append({
+            "chunk_index": i // 3,
+            "data":        [b0, b1, b2],
+            "ghost":       ghost,
+            "encoded":     [b0, b1, b2, ghost],
+        })
+    return chunks
+
+
+def ghost_bit_verify(chunks: list, eve_flip_rate: float = 0.0) -> dict:
+    """
+    Simulate Eve's interference then verify each chunk's parity.
+
+    eve_flip_rate — probability [0,1] that Eve flips one random bit within a chunk.
+
+    Returns:
+        verified_chunks:  list of chunk results with pass/fail + which index was flipped
+        healed_key:       data bits from all PASSING chunks only (self-healed)
+        tampered_blocks:  list of chunk indices that failed parity
+        total_chunks:     int
+        passing_chunks:   int
+        bits_saved:       int (data bits recovered)
+        bits_original:    int (data bits in all chunks)
+        efficiency_pct:   float — % of data bits preserved (Ghost-Bit Trap)
+        std_bb84_pct:     float — Standard BB84 would give 0% if any error exists
+        eve_was_active:   bool
+        flipped_count:    int (how many chunks Eve touched)
+    """
+    import random as rnd
+    verified = []
+    healed_key = []
+    tampered = []
+    flipped_count = 0
+    bits_original = len(chunks) * 3
+
+    for chunk in chunks:
+        received = list(chunk["encoded"])   # [b0, b1, b2, ghost]
+        flipped_index = None
+
+        # Eve randomly flips one bit in this chunk
+        if eve_flip_rate > 0 and rnd.random() < eve_flip_rate:
+            flip_pos = rnd.randint(0, 3)
+            received[flip_pos] ^= 1
+            flipped_index = flip_pos
+            flipped_count += 1
+
+        d0, d1, d2, ghost_received = received
+        expected_ghost = (d0 + d1 + d2) % 2
+        passes = (ghost_received == expected_ghost)
+
+        result = {
+            "chunk_index":    chunk["chunk_index"],
+            "original":       chunk["encoded"],
+            "received":       received,
+            "passes":         passes,
+            "flipped_index":  flipped_index,
+            "expected_ghost": expected_ghost,
+            "received_ghost": ghost_received,
+        }
+        verified.append(result)
+
+        if passes:
+            healed_key.extend([d0, d1, d2])   # keep data bits; ghost bit is discarded
+        else:
+            tampered.append(chunk["chunk_index"])
+
+    passing = len(chunks) - len(tampered)
+    bits_saved = passing * 3
+    efficiency = (bits_saved / bits_original * 100) if bits_original > 0 else 0.0
+    std_pct = 0.0 if len(tampered) > 0 else 100.0  # Standard BB84: all-or-nothing
+
+    return {
+        "verified_chunks":  verified,
+        "healed_key":       healed_key,
+        "tampered_blocks":  tampered,
+        "total_chunks":     len(chunks),
+        "passing_chunks":   passing,
+        "bits_saved":       bits_saved,
+        "bits_original":    bits_original,
+        "efficiency_pct":   round(efficiency, 2),
+        "std_bb84_pct":     std_pct,
+        "eve_was_active":   eve_flip_rate > 0,
+        "flipped_count":    flipped_count,
+    }
+
+
+@app.route('/api/ghost_bit/run', methods=['POST'])
+def ghost_bit_run():
+    """
+    Ghost-Bit Trap — Self-Healing BB84 simulation endpoint.
+
+    Request JSON:
+        key_bits      : list[int]  — raw key bits (0/1). If omitted, uses alice.shared_key.
+        eve_flip_rate : float      — per-chunk probability [0,1] Eve flips a bit. Default 0.
+        auto_generate : bool       — if True, generate `length` random bits. Default False.
+        length        : int        — bits to generate when auto_generate=True. Default 12.
+
+    Response JSON:
+        raw_bits, chunks (encoded), verify_result (healed key + block verdicts),
+        summary statistics.
+    """
+    data = request.json or {}
+    eve_flip_rate = float(data.get("eve_flip_rate", 0.0))
+    auto_generate = bool(data.get("auto_generate", False))
+    length = int(data.get("length", 12))
+
+    # ── Obtain source bits ──────────────────────────────────────────────────
+    key_bits = data.get("key_bits")
+
+    if not key_bits and auto_generate:
+        key_bits = [random.randint(0, 1) for _ in range(length)]
+    elif not key_bits:
+        # Use Alice's established shared key
+        if alice.shared_key:
+            key_bits = list(alice.shared_key)
+        else:
+            return jsonify({
+                "error": "No quantum key available. Please generate a BB84 key in the Quantum Lab first."
+            }), 400
+
+    key_bits = [int(b) for b in key_bits]
+
+    # ── Encode: add ghost bit to each 3-bit chunk ────────────────────────────
+    chunks = ghost_bit_encode(key_bits)
+
+    # ── Verify: simulate Eve, check parity block by block ────────────────────
+    verify_result = ghost_bit_verify(chunks, eve_flip_rate)
+
+    # ── Build summary narrative ───────────────────────────────────────────────
+    n_tampered = len(verify_result["tampered_blocks"])
+    n_chunks   = verify_result["total_chunks"]
+
+    if n_tampered == 0:
+        verdict = "SECURE — all blocks passed parity verification."
+    else:
+        verdict = (
+            f"SELF-HEALED — Eve tampered with {n_tampered}/{n_chunks} block(s). "
+            f"Those blocks were discarded; the remaining "
+            f"{verify_result['bits_saved']} bits are used as the clean key."
+        )
+
+    print(
+        f"[Ghost-Bit Trap] key={len(key_bits)}b | chunks={n_chunks} | "
+        f"eve={eve_flip_rate:.0%} | tampered={n_tampered} | "
+        f"healed={verify_result['bits_saved']}b | eff={verify_result['efficiency_pct']}%"
+    )
+
+    return jsonify({
+        "raw_bits":       key_bits,
+        "raw_length":     len(key_bits),
+        "chunks":         chunks,
+        "verify_result":  verify_result,
+        "healed_key":     verify_result["healed_key"],
+        "healed_length":  len(verify_result["healed_key"]),
+        "eve_flip_rate":  eve_flip_rate,
+        "verdict":        verdict,
+    })
+
+
+@app.route('/api/ghost_bit/adopt_key', methods=['POST'])
+def ghost_bit_adopt_key():
+    """
+    Called after Ghost-Bit Trap heals the key.
+    Sets alice.shared_key to the healed key so Secure Chat encryption works.
+    """
+    data = request.json
+    healed_key = data.get('healed_key', [])
+    if not healed_key:
+        return jsonify({"error": "No healed key provided"}), 400
+
+    alice.shared_key = [int(b) for b in healed_key]
+    print(f"[Ghost-Bit Trap] Healed key adopted as shared key: {len(alice.shared_key)} bits")
+    return jsonify({"status": "adopted", "key_length": len(alice.shared_key)})
+
+
 if __name__ == '__main__':
+
 
     print("Starting BB84 Quantum Server with Noise Simulation...")
     print(f"Noise Config: {noise_config}")

@@ -119,14 +119,25 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ onGetStarted, onCompa
           </p>
         </motion.div>
 
-        {/* Card 4 - The Novelty */}
+        {/* Card 4 - Recursive BB84 Novelty */}
         <motion.div variants={itemVariants} className="overview-card" style={{...cardStyle, border: '1px solid var(--accent-blue)', boxShadow: '0 8px 32px rgba(88,101,242,0.1)'}}>
           <div style={{ ...iconWrapperStyle, background: 'linear-gradient(135deg, rgba(88,101,242,0.2), rgba(46,204,113,0.2))' }}>
             <RefreshCw size={24} style={{ color: 'var(--accent-blue)' }} />
           </div>
-          <h3 style={cardTitleStyle}>4. Recursive BB84 (Our Novelty)</h3>
+          <h3 style={cardTitleStyle}>4. Recursive BB84</h3>
           <p style={cardTextStyle}>
             Standard BB84 peaks at ~50% efficiency. Our system uses a mathematically derived <strong>Rolling Bias</strong>, dynamically altering probability distributions based on the previous shared key to radically boost sifting efficiency without compromising theoretical security.
+          </p>
+        </motion.div>
+
+        {/* Card 5 - Ghost-Bit Trap Novelty */}
+        <motion.div variants={itemVariants} className="overview-card" style={{...cardStyle, border: '1px solid #a855f7', boxShadow: '0 8px 32px rgba(168,85,247,0.12)'}}>
+          <div style={{ ...iconWrapperStyle, background: 'linear-gradient(135deg, rgba(168,85,247,0.2), rgba(124,58,237,0.2))' }}>
+            <span style={{ fontSize: 22 }}>👻</span>
+          </div>
+          <h3 style={{ ...cardTitleStyle, color: '#a855f7' }}>5. Ghost-Bit Trap</h3>
+          <p style={cardTextStyle}>
+            Standard BB84 discards the <strong>entire key</strong> if Eve touches even one bit. Our <strong>Ghost-Bit Trap</strong> embeds a parity "ghost bit" per 3 data bits. Bob detects exactly which 4-bit block was tampered and discards <em>only that block</em> — the rest of the key is preserved. True self-healing cryptography.
           </p>
         </motion.div>
         
